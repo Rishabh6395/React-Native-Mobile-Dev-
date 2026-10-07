@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Android & Gradle Build Artifacts
+**/build/
+**/.gradle/
+**/.transforms/
+**/*.dex
+apps/mobile/android/
+apps/mobile/ios/
+modules/**/android/build/
+modules/**/android/.gradle/
+modules/**/build/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native Credentials & Keystores
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro & Logs
+.metro-health-check*
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# TypeScript
+*.tsbuildinfo
+
+# Local Environment
+.env
+.env*.local
+
+# OS
+.DS_Store
+Thumbs.db

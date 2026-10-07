@@ -34,6 +34,7 @@ export default ({ config }: ConfigContext) => ({
   plugins: [
     'expo-router',
     'expo-sqlite',
+    'expo-font',
     './plugins/withUsageStats'
   ],
   experiments: {

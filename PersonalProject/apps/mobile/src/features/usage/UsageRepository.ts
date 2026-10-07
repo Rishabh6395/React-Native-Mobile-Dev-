@@ -1,7 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { 
   hasUsageAccess, 
-  openUsageAccessSettings, 
   getDailyUsage, 
   AppUsage 
 } from '../../../modules/usage-stats';
