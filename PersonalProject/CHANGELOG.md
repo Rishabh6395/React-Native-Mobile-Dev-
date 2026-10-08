@@ -1,5 +1,42 @@
 # Changelog
 
+## Phase 4: Backend, auth, sync
+**What was done:**
+- Scaffolded backend API workspace (`apps/api`) using Hono and Node.js.
+- Set up Prisma schema for Postgres (Neon), configured `@prisma/adapter-neon` with `ws` and generated Prisma Client with the `driverAdapters` preview feature.
+- Integrated `better-auth` for authentication, connecting to the Prisma database adapter.
+- Configured foundational Hono routes for usage sync, reports, chat threads, and goals.
+- Created shared package (`packages/shared`) for centralized types, schemas, and plan configuration.
+- Built a mobile authentication gate component (`SignInScreen`) integrated into the app startup sequence.
+- Added secure token storage using `expo-secure-store`.
+- Configured TanStack Query and a generic API fetch wrapper for backend communication.
+- Implemented background usage sync using `expo-background-fetch` and `expo-task-manager` to periodically push local SQLite usage data to the server.
+
+**What the human should manually test:**
+1. **SignInScreen:** Test the new `SignInScreen` flow that now appears after onboarding and permissions are completed.
+2. **Background Sync:** Wait 15+ minutes with the app backgrounded, or manually trigger the background fetch task using Android Studio/emulator ADB tools to ensure it calls the local `/usage/sync` API.
+
+## Phase 3: Dashboards
+**What was done:**
+- Extended `UsageRepository` with robust multi-day queries (Day, Week, Month) and automatic historical data backfill.
+- Built reusable core chart components using `react-native-svg` and `react-native-reanimated` (`src/components/charts/`):
+  - `BarChart`: Scrubbable animated bar chart with haptics.
+  - `MiniTimeline`: 24-hour horizontal usage density strip.
+  - `CategoryDonut`: Animated SVG donut chart with center stats and legend.
+  - `UsageBar`: Inline animated proportional bar for ranked lists.
+- Implemented `usageAggregation.ts` utility for robust client-side aggregations (by category, date grouping, top apps, deltas).
+- Built **Home Screen** (`app/(tabs)/index.tsx`) featuring a greeting, hero ProgressRing with delta comparison, today's timeline, top 3 apps, and coach insight card.
+- Built **Stats Screen** (`app/(tabs)/stats.tsx`) featuring Day/Week/Month SegmentedControl, dynamic bar charts, category donut, and full ranked app list using `FlashList` (gracefully degraded to `map` for static rendering).
+- Built **App Detail Screen** (`app/app-detail.tsx`) featuring a 7-day trend chart, hourly breakdown, stats grid (launches, sessions, night usage), and actionable CTAs.
+- Updated root layout to use Expo Router Tabs via a custom floating `TabBar` and converted the old `index.tsx` into a lean Onboarding/Permission gate.
+- Resolved all TypeScript and ESLint strict errors.
+
+**What the human should manually test:**
+1. **Gate Flow**: Restart the app and ensure it smoothly skips the onboarding/permission gate if already granted, landing directly on the new Home screen.
+2. **Home Screen**: Check the hero ring for today's time and delta. Verify the 24-hour timeline populates segments accurately, and the top 3 apps navigate to App Details upon tap.
+3. **Stats Screen**: Switch between Day, Week, and Month tabs. Verify the charts animate dynamically and correctly represent the aggregated date ranges. Observe the "month view backfill" notice if fewer than 10 days of history are available.
+4. **App Detail Screen**: Tap an app from the Stats or Home screen. Verify the 7-day historical trend chart, today's hourly timeline, and the stats grid (Night Usage, Sessions).
+5. **Interactive Charts**: Scrub your finger across the BarChart in the Stats screen and App Detail screen. Feel the haptic ticks and ensure the tooltip updates seamlessly.
 ## Phase 2: Design System & Onboarding
 **What was done:**
 - Implemented comprehensive design system tokens (`src/theme/tokens.ts`): dark-first (`#0B0D12` deep ink, `#12151C`/`#171B24` elevated cards, 1px 6% white inner border), light theme tokens, Google Fonts integration (Space Grotesk & Plus Jakarta Sans), spacing grid, and stable per-app color hashing.

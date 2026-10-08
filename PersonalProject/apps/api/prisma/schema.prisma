@@ -1,0 +1,222 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+enum Plan {
+  FREE
+  PLUS
+  PRO
+  ULTIMATE
+}
+
+enum ReportType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  TOOL
+}
+
+enum ContentKind {
+  SERIES
+  MOVIE
+  VIDEO_CHANNEL
+  MUSIC
+  GAME
+  OTHER
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String?  @unique
+  name        String?
+  timezone    String   @default("Asia/Kolkata")
+  createdAt   DateTime @default(now())
+  
+  // Better Auth core tables
+  emailVerified Boolean @default(false)
+  image         String?
+  updatedAt     DateTime @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  subscription Subscription?
+  usage        DailyAppUsage[]
+  reports      AiReport[]
+  threads      ChatThread[]
+  contentLogs  ContentLog[]
+  goals        Goal[]
+  counters     UsageCounter[]
+  devices      Device[]
+
+  @@map("user")
+}
+
+// Better Auth tables
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+model Device {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fcmToken  String?
+  platform  String   @default("android")
+  appVersion String?
+  lastSeen  DateTime @default(now())
+}
+
+model DailyAppUsage {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         DateTime @db.Date
+  packageName  String
+  appName      String
+  category     String
+  foregroundMs Int
+  launches     Int      @default(0)
+  sessions     Int      @default(0)
+  nightMs      Int      @default(0)
+  longestSessionMs Int  @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, date, packageName])
+  @@index([userId, date])
+}
+
+model AiReport {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        ReportType
+  periodStart DateTime   @db.Date
+  periodEnd   DateTime   @db.Date
+  payload     Json
+  model       String
+  inputTokens  Int @default(0)
+  outputTokens Int @default(0)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, type, periodStart])
+}
+
+model ChatThread {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  summary   String?
+  createdAt DateTime @default(now())
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role      ChatRole
+  content   Json
+  createdAt DateTime @default(now())
+
+  @@index([threadId, createdAt])
+}
+
+model ContentLog {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceApp   String
+  title       String
+  kind        ContentKind
+  genres      String[]
+  watchedWeek DateTime    @db.Date
+  source      String      @default("chat")
+  createdAt   DateTime    @default(now())
+
+  @@index([userId, watchedWeek])
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageName String?
+  dailyLimitMs Int
+  active      Boolean  @default(true)
+  planJson    Json?
+  createdAt   DateTime @default(now())
+}
+
+model Subscription {
+  userId     String   @id
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan       Plan     @default(FREE)
+  status     String   @default("none")
+  expiresAt  DateTime?
+  rcCustomerId String?
+  updatedAt  DateTime @updatedAt
+}
+
+model UsageCounter {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date     DateTime @db.Date
+  chatMessages Int  @default(0)
+  reportsGenerated Int @default(0)
+
+  @@unique([userId, date])
+}

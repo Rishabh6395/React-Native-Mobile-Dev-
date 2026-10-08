@@ -470,9 +470,10 @@ const styles = StyleSheet.create({
   },
   pagesSlider: {
     flexDirection: 'row',
-    flex: 1,
+    width: SCREEN_WIDTH * 3,
   },
   page: {
+    width: SCREEN_WIDTH,
     flex: 1,
     paddingHorizontal: layout.screenPadding,
     justifyContent: 'space-between',

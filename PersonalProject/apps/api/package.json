@@ -1,0 +1,32 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.78",
+    "@hono/node-server": "^1.13.7",
+    "@neondatabase/serverless": "^0.9.0",
+    "@prisma/adapter-neon": "^5.10.2",
+    "@prisma/client": "^5.10.2",
+    "ai": "^7.0.135",
+    "better-auth": "^0.8.0",
+    "hono": "^4.6.14",
+    "prisma": "^5.10.2",
+    "shared": "*",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
