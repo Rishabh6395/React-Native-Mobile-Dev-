@@ -2,7 +2,7 @@ import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import { fetchApi } from '../../lib/api';
 import { getSessionToken } from '../../lib/auth';
-import { UsageRepository } from '../usage/UsageRepository';
+import { usageRepository } from '../usage/UsageRepository';
 import { SyncUsagePayload } from 'shared/src/schemas';
 
 const BACKGROUND_SYNC_TASK = 'BACKGROUND_USAGE_SYNC';
@@ -19,9 +19,8 @@ TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
     const start = new Date();
     start.setDate(end.getDate() - 3);
     
-    // Fetch from SQLite (mocking the exact repo call we built earlier)
-    // We get the raw rows and group them by date for the API payload
-    const rows = await UsageRepository.getUsageForRange(start.toISOString(), end.toISOString());
+    // Fetch from SQLite using the initialized repository instance
+    const rows = await usageRepository.getUsageForRange(start, end);
     
     if (rows.length === 0) {
       return BackgroundFetch.BackgroundFetchResult.NoData;
@@ -40,11 +39,11 @@ TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
         launches: row.launches,
         sessions: row.sessions,
         nightMs: row.nightMs,
-        longestSessionMs: row.longestSessionMs
+        longestSessionMs: (row as any).longestSessionMs ?? 0,
       });
     }
 
-    const payloads = Object.keys(grouped).map(date => ({
+    const payloads: SyncUsagePayload[] = Object.keys(grouped).map(date => ({
       date,
       usage: grouped[date]
     }));

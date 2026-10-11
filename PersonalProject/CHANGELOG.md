@@ -1,5 +1,29 @@
 # Changelog
 
+## Phase 5: AI reports
+**What was done:**
+- Implemented `UsageContext` builder (`apps/api/src/ai/usageContextBuilder.ts`) computing privacy-first pre-aggregated metrics from Postgres (`DailyAppUsage`, `Goal`, `ContentLog`).
+- Enhanced AI report generator (`apps/api/src/ai/reportGenerator.ts`) using Claude Haiku with temperature tuning, retry loop on validation failure, and deterministic offline synthesis fallback.
+- Added strict server-side tier limits enforcement and quota tracking in `reportsRouter` based on `packages/shared/src/plans.ts` (Free plan restricted to 1 weekly report; Plus/Pro unlocks daily & monthly).
+- Built automated weekly scheduled job route (`/v1/reports/scheduled-job`) to pre-generate reports for active users.
+- Created Phase 5 Definition of Done validation suite (`apps/api/test/reportsFixtures.test.ts`) verifying 100% valid JSON generation across 20 diverse, realistic user profile fixtures.
+- Upgraded mobile Reports tab (`app/(tabs)/reports.tsx`) with SegmentedControl for Weekly/Daily/Monthly, Free tier lock badges, loading skeletons, and interactive report cards.
+- Redesigned mobile Report Detail screen (`app/report-detail.tsx`) with score badge, Space Grotesk time stats, delta indicators, structured cards (`breakdown`, `insight`, `pattern`, `win`), "Add this as a goal" actions, and follow-up chips routing to Coach.
+- Validated with 0 errors across TypeScript typechecking (`tsc --noEmit`) and ESLint (`expo lint`).
+
+**What the human should manually test:**
+1. **Reports Tab (`(tabs)/reports`):**
+   - Tap the Reports tab in the bottom bar.
+   - Switch between **Weekly**, **Daily**, and **Monthly** tabs.
+   - Observe the Plus lock banner on Daily/Monthly previews for free-tier users.
+   - Tap "Generate Fresh Report" or the empty state action to trigger report generation with loading spinner.
+2. **Report Detail Screen (`/report-detail`):**
+   - Tap any report card to open the detail view.
+   - Verify the headline, total screen time, and delta percentage.
+   - Inspect the structured sections: app breakdown with icons, insights with severity coloring, bedtime patterns, and win celebration cards.
+   - Tap **"Add this as a goal"** on any recommended habit card — feel the haptic feedback and verify the state changes to "Goal Added ✓".
+   - Tap any of the **"Ask Your Coach"** suggestion chips at the bottom to transition to the AI coach chat.
+
 ## Phase 4: Backend, auth, sync
 **What was done:**
 - Scaffolded backend API workspace (`apps/api`) using Hono and Node.js.

@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput } from 'react-native';
 import { Mail, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Button, Card, Pill } from '../../components/ui';
+import { Button, Card } from '../../components/ui';
 import { spacing, typography, layout } from '../../theme/tokens';
-import { fetchApi, saveSessionToken } from '../../lib/api';
-import { router } from 'expo-router';
+import { fetchApi } from '../../lib/api';
+import { saveSessionToken } from '../../lib/auth';
 
 export const SignInScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const { theme, isDark } = useTheme();
@@ -71,7 +71,7 @@ export const SignInScreen: React.FC<{ onComplete: () => void }> = ({ onComplete 
               { 
                 color: theme.text.primary, 
                 backgroundColor: isDark ? theme.card.highlight : theme.card.elevated,
-                borderColor: theme.border,
+                borderColor: theme.border.subtle,
                 fontFamily: typography.fonts.uiRegular
               }
             ]}
@@ -92,7 +92,7 @@ export const SignInScreen: React.FC<{ onComplete: () => void }> = ({ onComplete 
               { 
                 color: theme.text.primary, 
                 backgroundColor: isDark ? theme.card.highlight : theme.card.elevated,
-                borderColor: theme.border,
+                borderColor: theme.border.subtle,
                 fontFamily: typography.fonts.uiRegular
               }
             ]}
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing['2xl'],
+    marginBottom: spacing.xxl,
   },
   iconWrapper: {
     width: 64,
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: typography.scale.h2,
+    fontSize: typography.scale.xl,
     marginBottom: spacing.xs,
     includeFontPadding: false,
   },

@@ -19,7 +19,8 @@ export default function Layout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="app-detail" />
-            <Stack.Screen name="dev" />
+            <Stack.Screen name="report-detail" />
+            <Stack.Screen name="dev/components" />
           </Stack>
         </ThemeProvider>
       </QueryClientProvider>

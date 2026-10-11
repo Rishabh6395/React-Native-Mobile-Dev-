@@ -9,6 +9,9 @@
     "packages/*"
   ],
   "scripts": {
+    "android": "npm run android -w mobile",
+    "ios": "npm run ios -w mobile",
+    "start": "npm run start -w mobile",
     "dev:mobile": "npm run start -w mobile",
     "dev:api": "npm run dev -w api",
     "lint": "npm run lint --workspaces --if-present",

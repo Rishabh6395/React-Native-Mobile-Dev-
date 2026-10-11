@@ -4,6 +4,7 @@ export default ({ config }: ConfigContext) => ({
   ...config,
   name: 'Hourly',
   slug: 'hourly',
+  scheme: 'hourly',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',

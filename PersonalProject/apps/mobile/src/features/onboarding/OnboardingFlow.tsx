@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
   Pressable,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
   useReducedMotion,
 } from 'react-native-reanimated';
 import {
@@ -26,10 +25,8 @@ import { Card } from '../../components/ui/Card';
 import { GlowCard } from '../../components/ui/GlowCard';
 import { Pill } from '../../components/ui/Pill';
 import { ProgressRing } from '../../components/ui/ProgressRing';
-import { springConfig, triggerHaptic } from '../../theme/motion';
+import { triggerHaptic } from '../../theme/motion';
 import { layout, spacing, typography } from '../../theme/tokens';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -37,8 +34,12 @@ interface OnboardingFlowProps {
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const [layoutWidth, setLayoutWidth] = useState(windowWidth);
+  const effectiveWidth = layoutWidth > 0 ? layoutWidth : windowWidth;
   const [currentPage, setCurrentPage] = useState(0);
-  const translateX = useSharedValue(0);
+  const scrollRef = useRef<ScrollView>(null);
   const reducedMotion = useReducedMotion();
 
   const totalPages = 3;
@@ -46,14 +47,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
   const goToPage = (pageIndex: number) => {
     triggerHaptic.selection();
     setCurrentPage(pageIndex);
-    if (reducedMotion) {
-      translateX.value = -pageIndex * SCREEN_WIDTH;
-    } else {
-      translateX.value = withSpring(
-        -pageIndex * SCREEN_WIDTH,
-        springConfig.default
-      );
-    }
+    scrollRef.current?.scrollTo({
+      x: pageIndex * effectiveWidth,
+      animated: !reducedMotion,
+    });
   };
 
   const handleNext = () => {
@@ -65,14 +62,17 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
     }
   };
 
-  const animatedContainerStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: translateX.value }],
-    };
-  });
-
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.background,
+          paddingTop: Math.max(insets.top, 16) + spacing.xs,
+          paddingBottom: Math.max(insets.bottom, 16) + spacing.xs,
+        },
+      ]}
+    >
       {/* Top Header Row with Skip button */}
       <View style={styles.topRow}>
         <View style={styles.brandRow}>
@@ -115,10 +115,35 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
       </View>
 
       {/* Swipeable Pages Container */}
-      <View style={styles.pagesViewport}>
-        <Animated.View style={[styles.pagesSlider, animatedContainerStyle]}>
+      <View
+        style={styles.pagesViewport}
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          if (w > 0 && Math.abs(w - layoutWidth) > 1) {
+            setLayoutWidth(w);
+          }
+        }}
+      >
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          scrollEventThrottle={16}
+          onMomentumScrollEnd={(e) => {
+            const pageIndex = Math.round(e.nativeEvent.contentOffset.x / effectiveWidth);
+            const clamped = Math.max(0, Math.min(totalPages - 1, pageIndex));
+            if (clamped !== currentPage) {
+              setCurrentPage(clamped);
+              triggerHaptic.selection();
+            }
+          }}
+          style={{ width: effectiveWidth }}
+          contentContainerStyle={{ width: effectiveWidth * totalPages }}
+        >
           {/* Page 1: Where your time goes */}
-          <View style={[styles.page, { width: SCREEN_WIDTH }]}>
+          <View style={[styles.page, { width: effectiveWidth }]}>
             <View style={styles.heroVisualArea}>
               <ProgressRing
                 progress={0.68}
@@ -186,7 +211,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
           </View>
 
           {/* Page 2: AI Coach & Content Swaps */}
-          <View style={[styles.page, { width: SCREEN_WIDTH }]}>
+          <View style={[styles.page, { width: effectiveWidth }]}>
             <View style={styles.heroVisualArea}>
               <GlowCard style={styles.coachCard} padding="base">
                 <View style={styles.coachCardHeader}>
@@ -251,7 +276,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
           </View>
 
           {/* Page 3: Privacy Promise */}
-          <View style={[styles.page, { width: SCREEN_WIDTH }]}>
+          <View style={[styles.page, { width: effectiveWidth }]}>
             <View style={styles.heroVisualArea}>
               <Card style={styles.privacyCard} padding="base">
                 <View style={styles.privacyItem}>
@@ -386,7 +411,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
               </Text>
             </View>
           </View>
-        </Animated.View>
+        </ScrollView>
       </View>
 
       {/* Bottom Navigation Row: Pager Dots + CTA Button */}
@@ -434,15 +459,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 54,
-    paddingBottom: 36,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: layout.screenPadding,
-    height: 40,
+    height: 44,
   },
   brandRow: {
     flexDirection: 'row',
@@ -468,16 +491,11 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: 'hidden',
   },
-  pagesSlider: {
-    flexDirection: 'row',
-    width: SCREEN_WIDTH * 3,
-  },
   page: {
-    width: SCREEN_WIDTH,
     flex: 1,
     paddingHorizontal: layout.screenPadding,
     justifyContent: 'space-between',
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
   },
   heroVisualArea: {
     flex: 1,

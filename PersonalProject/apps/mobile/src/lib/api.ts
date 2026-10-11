@@ -7,6 +7,8 @@ export const API_BASE_URL = __DEV__
   ? Platform.OS === 'android' ? 'http://10.0.2.2:3000/v1' : 'http://localhost:3000/v1'
   : 'https://api.hourlyapp.local/v1'; // Replace with production URL
 
+export const API_URL = API_BASE_URL;
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

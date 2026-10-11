@@ -92,10 +92,16 @@ export default function HomeScreen() {
   }, [fetchData]);
 
   useEffect(() => {
-    fetchData();
+    let isMounted = true;
 
-    // Also run backfill on first mount
-    usageRepository.backfillAvailableHistory().catch(() => {});
+    const initData = async () => {
+      await fetchData();
+      if (isMounted) {
+        usageRepository.backfillAvailableHistory().catch(() => {});
+      }
+    };
+
+    initData();
 
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
@@ -103,7 +109,10 @@ export default function HomeScreen() {
       }
     });
 
-    return () => sub.remove();
+    return () => {
+      isMounted = false;
+      sub.remove();
+    };
   }, [fetchData]);
 
   // ─── Loading State ─────────────────────────────────────────

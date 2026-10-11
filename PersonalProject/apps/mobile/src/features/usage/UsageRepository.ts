@@ -12,36 +12,64 @@ const DB_NAME = 'usage_cache.db';
 
 export class UsageRepository {
   private db: SQLite.SQLiteDatabase | null = null;
+  private initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+  private writeQueue: Promise<void> = Promise.resolve();
+  private isBackfilling = false;
 
-  async init() {
-    this.db = await SQLite.openDatabaseAsync(DB_NAME);
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS daily_usage (
-        date TEXT NOT NULL,
-        packageName TEXT NOT NULL,
-        appName TEXT,
-        category TEXT,
-        foregroundMs INTEGER NOT NULL,
-        launches INTEGER NOT NULL,
-        sessions INTEGER NOT NULL,
-        nightMs INTEGER NOT NULL,
-        longestSessionMs INTEGER NOT NULL DEFAULT 0,
-        PRIMARY KEY (date, packageName)
-      );
-    `);
+  private runSerializedWrite<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.writeQueue.then(fn, fn);
+    this.writeQueue = next.then(
+      () => {},
+      () => {}
+    );
+    return next;
+  }
 
-    // Migration: add longestSessionMs if missing (from Phase 1 schema)
-    try {
-      await this.db.execAsync(
-        `ALTER TABLE daily_usage ADD COLUMN longestSessionMs INTEGER NOT NULL DEFAULT 0;`
-      );
-    } catch {
-      // Column already exists — safe to ignore
+  async init(): Promise<SQLite.SQLiteDatabase> {
+    if (!this.initPromise) {
+      this.initPromise = (async () => {
+        const db = await SQLite.openDatabaseAsync(DB_NAME);
+        await db.execAsync(`
+          CREATE TABLE IF NOT EXISTS daily_usage (
+            date TEXT NOT NULL,
+            packageName TEXT NOT NULL,
+            appName TEXT,
+            category TEXT,
+            foregroundMs INTEGER NOT NULL,
+            launches INTEGER NOT NULL,
+            sessions INTEGER NOT NULL,
+            nightMs INTEGER NOT NULL,
+            longestSessionMs INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (date, packageName)
+          );
+        `);
+
+        // Migration: add longestSessionMs if missing (from Phase 1 schema)
+        try {
+          const columns = await db.getAllAsync<{ name: string }>(
+            `PRAGMA table_info(daily_usage);`
+          );
+          const hasColumn = columns.some((c) => c.name === 'longestSessionMs');
+          if (!hasColumn) {
+            await db.execAsync(
+              `ALTER TABLE daily_usage ADD COLUMN longestSessionMs INTEGER NOT NULL DEFAULT 0;`
+            );
+          }
+        } catch {
+          // Column already exists or schema intact — safe to ignore
+        }
+
+        this.db = db;
+        return db;
+      })();
     }
+    return this.initPromise;
   }
 
   private async ensureDb() {
-    if (!this.db) await this.init();
+    if (!this.db) {
+      await this.init();
+    }
     return this.db!;
   }
 
@@ -79,26 +107,31 @@ export class UsageRepository {
    * Called on first run to populate history.
    */
   async backfillAvailableHistory() {
-    if (!hasUsageAccess()) return;
+    if (!hasUsageAccess() || this.isBackfilling) return;
+    this.isBackfilling = true;
 
-    const today = new Date();
-    // Android typically keeps 7-10 days of usage events
-    const maxDays = 10;
+    try {
+      const today = new Date();
+      // Android typically keeps 7-10 days of usage events
+      const maxDays = 10;
 
-    for (let i = 1; i <= maxDays; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = toDateStr(date);
+      for (let i = 1; i <= maxDays; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = toDateStr(date);
 
-      // Only backfill if we don't already have data for that date
-      const db = await this.ensureDb();
-      const existing = await db.getFirstAsync<{ cnt: number }>(
-        `SELECT COUNT(*) as cnt FROM daily_usage WHERE date = ?`,
-        [dateStr]
-      );
-      if (existing && existing.cnt > 0) continue;
+        // Only backfill if we don't already have data for that date
+        const db = await this.ensureDb();
+        const existing = await db.getFirstAsync<{ cnt: number }>(
+          `SELECT COUNT(*) as cnt FROM daily_usage WHERE date = ?`,
+          [dateStr]
+        );
+        if (existing && existing.cnt > 0) continue;
 
-      await this.refreshDate(date);
+        await this.refreshDate(date);
+      }
+    } finally {
+      this.isBackfilling = false;
     }
   }
 
@@ -107,27 +140,30 @@ export class UsageRepository {
    */
   private async cacheUsageForRange(startMs: number, endMs: number, dateStr: string) {
     const usage = getDailyUsage(startMs, endMs);
+    if (!usage || usage.length === 0) return;
     const db = await this.ensureDb();
 
-    await db.withTransactionAsync(async () => {
-      for (const app of usage) {
-        await db.runAsync(
-          `INSERT OR REPLACE INTO daily_usage 
-          (date, packageName, appName, category, foregroundMs, launches, sessions, nightMs, longestSessionMs) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            dateStr, 
-            app.packageName, 
-            app.appName, 
-            app.category, 
-            app.foregroundMs, 
-            app.launches, 
-            app.sessions, 
-            app.nightMs,
-            0, // longestSessionMs — placeholder until we compute from sessions
-          ]
-        );
-      }
+    await this.runSerializedWrite(async () => {
+      await db.withTransactionAsync(async () => {
+        for (const app of usage) {
+          await db.runAsync(
+            `INSERT OR REPLACE INTO daily_usage 
+            (date, packageName, appName, category, foregroundMs, launches, sessions, nightMs, longestSessionMs) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              dateStr, 
+              app.packageName, 
+              app.appName ?? app.packageName, 
+              app.category ?? 'Other', 
+              app.foregroundMs ?? 0, 
+              app.launches ?? 0, 
+              app.sessions ?? 0, 
+              app.nightMs ?? 0,
+              0, // longestSessionMs — placeholder until we compute from sessions
+            ]
+          );
+        }
+      });
     });
   }
 

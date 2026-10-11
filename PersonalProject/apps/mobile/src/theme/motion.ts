@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { WithSpringConfig } from 'react-native-reanimated';
+import { WithSpringConfig, runOnJS } from 'react-native-reanimated';
 
 /**
  * Motion Principles for Hourly
@@ -37,40 +37,83 @@ export const motionConstants = {
   durationNormal: 350,
 };
 
+// Pure JS runners for expo-haptics
+const doLight = () => {
+  try {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  } catch {}
+};
+
+const doMedium = () => {
+  try {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  } catch {}
+};
+
+const doHeavy = () => {
+  try {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  } catch {}
+};
+
+const doSuccess = () => {
+  try {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  } catch {}
+};
+
+const doWarning = () => {
+  try {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  } catch {}
+};
+
+const doSelection = () => {
+  try {
+    Haptics.selectionAsync();
+  } catch {}
+};
+
+const isWorkletRuntime = () => {
+  'worklet';
+  return typeof _WORKLET !== 'undefined' && Boolean(_WORKLET);
+};
+
+const safeHaptic = (action: () => void) => {
+  'worklet';
+  if (isWorkletRuntime()) {
+    runOnJS(action)();
+  } else {
+    action();
+  }
+};
+
 /**
- * Safe haptic feedback triggers with error boundary protection
+ * Safe haptic feedback triggers with error boundary and worklet-safe dispatch
  */
 export const triggerHaptic = {
   light: () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      // Haptics may fail in emulator or unprivileged contexts
-    }
+    'worklet';
+    safeHaptic(doLight);
   },
   medium: () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch {}
+    'worklet';
+    safeHaptic(doMedium);
   },
   heavy: () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    } catch {}
+    'worklet';
+    safeHaptic(doHeavy);
   },
   success: () => {
-    try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {}
+    'worklet';
+    safeHaptic(doSuccess);
   },
   warning: () => {
-    try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } catch {}
+    'worklet';
+    safeHaptic(doWarning);
   },
   selection: () => {
-    try {
-      Haptics.selectionAsync();
-    } catch {}
+    'worklet';
+    safeHaptic(doSelection);
   },
 };
