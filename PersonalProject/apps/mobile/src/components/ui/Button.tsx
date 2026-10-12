@@ -100,6 +100,8 @@ export const Button: React.FC<ButtonProps> = ({
             },
             textStyle,
           ]}
+          textBreakStrategy="simple"
+          numberOfLines={1}
         >
           {title}
         </Text>
@@ -241,5 +243,6 @@ const styles = StyleSheet.create({
   text: {
     includeFontPadding: false,
     textAlign: 'center',
+    paddingHorizontal: spacing.sm,
   },
 });

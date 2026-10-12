@@ -1,3 +1,9 @@
+try {
+  process.loadEnvFile();
+} catch {
+  // .env file is optional
+}
+
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
@@ -12,10 +18,24 @@ app.use('*', cors({
   credentials: true,
 }));
 
-// Mount Better Auth
+// Mount Better Auth for both /api/auth/* and /v1/api/auth/*
 app.all('/api/auth/*', (c) => {
   return auth.handler(c.req.raw);
 });
+
+app.all('/v1/api/auth/*', (c) => {
+  const originalUrl = new URL(c.req.raw.url);
+  const rewrittenUrl = new URL(originalUrl.pathname.replace(/^\/v1/, '') + originalUrl.search, originalUrl.origin);
+  const rewrittenReq = new Request(rewrittenUrl.toString(), {
+    method: c.req.raw.method,
+    headers: c.req.raw.headers,
+    body: ['GET', 'HEAD'].includes(c.req.raw.method) ? undefined : c.req.raw.body,
+    // @ts-ignore
+    duplex: 'half',
+  });
+  return auth.handler(rewrittenReq);
+});
+
 
 // Routes stub
 const v1 = new Hono();

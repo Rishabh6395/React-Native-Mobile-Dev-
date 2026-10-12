@@ -36,8 +36,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
   const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const [layoutWidth, setLayoutWidth] = useState(windowWidth);
-  const effectiveWidth = layoutWidth > 0 ? layoutWidth : windowWidth;
+  const effectiveWidth = Math.round(windowWidth);
   const [currentPage, setCurrentPage] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const reducedMotion = useReducedMotion();
@@ -107,6 +106,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                   fontFamily: typography.fonts.uiMedium,
                 },
               ]}
+              textBreakStrategy="simple"
             >
               Skip
             </Text>
@@ -115,15 +115,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
       </View>
 
       {/* Swipeable Pages Container */}
-      <View
-        style={styles.pagesViewport}
-        onLayout={(e) => {
-          const w = e.nativeEvent.layout.width;
-          if (w > 0 && Math.abs(w - layoutWidth) > 1) {
-            setLayoutWidth(w);
-          }
-        }}
-      >
+      <View style={styles.pagesViewport}>
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -140,7 +132,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             }
           }}
           style={{ width: effectiveWidth }}
-          contentContainerStyle={{ width: effectiveWidth * totalPages }}
+          contentContainerStyle={{ flexDirection: 'row' }}
         >
           {/* Page 1: Where your time goes */}
           <View style={[styles.page, { width: effectiveWidth }]}>
@@ -193,6 +185,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     fontFamily: typography.fonts.numbersBold,
                   },
                 ]}
+                textBreakStrategy="simple"
               >
                 Where your time goes
               </Text>
@@ -204,6 +197,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     fontFamily: typography.fonts.uiRegular,
                   },
                 ]}
+                textBreakStrategy="simple"
               >
                 Clear, calming clarity on your daily screen time habits. No guilt, no judgment, just awareness.
               </Text>
@@ -238,6 +232,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                       fontFamily: typography.fonts.uiRegular,
                     },
                   ]}
+                  textBreakStrategy="simple"
                 >
                   {'"You watched 9h 40m of video this week. Tell me what you loved, and let\'s find high-impact swaps!"'}
                 </Text>
@@ -258,6 +253,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     fontFamily: typography.fonts.numbersBold,
                   },
                 ]}
+                textBreakStrategy="simple"
               >
                 Your personal time coach
               </Text>
@@ -269,6 +265,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     fontFamily: typography.fonts.uiRegular,
                   },
                 ]}
+                textBreakStrategy="simple"
               >
                 Get structured reports, explain what you watched, and build gradual reduction plans that stick.
               </Text>
@@ -395,6 +392,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     fontFamily: typography.fonts.numbersBold,
                   },
                 ]}
+                textBreakStrategy="simple"
               >
                 Our Privacy Promise
               </Text>
@@ -406,6 +404,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     fontFamily: typography.fonts.uiRegular,
                   },
                 ]}
+                textBreakStrategy="simple"
               >
                 Your privacy is paramount. Full transparency, zero sale of personal data, export or delete anytime.
               </Text>
@@ -482,17 +481,21 @@ const styles = StyleSheet.create({
   brandName: {
     fontSize: typography.scale.lg,
     includeFontPadding: false,
+    paddingHorizontal: spacing.xs,
   },
   skipText: {
     fontSize: typography.scale.sm,
     includeFontPadding: false,
+    paddingHorizontal: spacing.sm,
   },
   pagesViewport: {
     flex: 1,
     overflow: 'hidden',
   },
   page: {
-    flex: 1,
+    height: '100%',
+    flexGrow: 0,
+    flexShrink: 0,
     paddingHorizontal: layout.screenPadding,
     justifyContent: 'space-between',
     paddingVertical: spacing.md,
@@ -501,6 +504,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 0,
   },
   ringCenterContent: {
     alignItems: 'center',
@@ -588,6 +592,8 @@ const styles = StyleSheet.create({
   textBlock: {
     alignItems: 'center',
     marginBottom: spacing.md,
+    width: '100%',
+    paddingHorizontal: spacing.xs,
   },
   title: {
     fontSize: typography.scale.xl,
@@ -595,13 +601,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     includeFontPadding: false,
     letterSpacing: -0.5,
+    paddingHorizontal: spacing.sm,
   },
   description: {
     fontSize: typography.scale.sm,
     textAlign: 'center',
     lineHeight: typography.lineHeight.sm + 4,
     includeFontPadding: false,
-    maxWidth: 320,
+    width: '100%',
+    paddingHorizontal: spacing.md,
   },
   bottomNav: {
     paddingHorizontal: layout.screenPadding,
