@@ -44,10 +44,10 @@ v1.post('/usage/sync', (c) => c.json({ success: true }));
 v1.get('/usage/summary', (c) => c.json({}));
 
 import { reportsRouter } from './routes/reports.js';
-
-// ... other imports
+import { coachRouter } from './routes/coach.js';
 
 v1.route('/reports', reportsRouter);
+v1.route('/coach', coachRouter);
 
 v1.get('/chat/threads', (c) => c.json([]));
 v1.post('/chat/threads', (c) => c.json({ id: 'thread_1' }));

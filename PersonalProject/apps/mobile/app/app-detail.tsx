@@ -288,7 +288,10 @@ export default function AppDetailScreen() {
           icon={<MessageCircle size={18} color={theme.text.primary} />}
           iconPosition="left"
           onPress={() => {
-            // Placeholder for Phase 6
+            router.push({
+              pathname: '/(tabs)/coach',
+              params: { initialPrompt: `How can I reduce my daily screen time on ${appName || 'this app'}?` },
+            } as any);
           }}
         />
       </View>

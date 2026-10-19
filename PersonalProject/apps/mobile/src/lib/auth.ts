@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
-import { AUTH_BASE_URL } from './api';
+import { AUTH_BASE_URL } from './config';
 
 const SESSION_TOKEN_KEY = 'hourly_session_token';
 const USER_KEY = 'hourly_user_info';

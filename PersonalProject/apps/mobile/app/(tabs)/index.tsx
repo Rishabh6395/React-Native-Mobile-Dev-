@@ -359,8 +359,17 @@ export default function HomeScreen() {
             : 'Welcome! Your device usage metrics will calibrate as you use apps today.'}
         </Text>
         <View style={styles.coachChips}>
-          <Pill label="View Full Report" size="sm" active />
-          <Pill label="Ask the Coach" size="sm" />
+          <Pill
+            label="View Full Report"
+            size="sm"
+            active
+            onPress={() => router.push('/(tabs)/reports')}
+          />
+          <Pill
+            label="Ask the Coach"
+            size="sm"
+            onPress={() => router.push('/(tabs)/coach')}
+          />
         </View>
       </GlowCard>
 

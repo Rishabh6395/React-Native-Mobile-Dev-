@@ -1,5 +1,36 @@
 # Changelog
 
+## Phase 6: AI Coach Screen, Quota System & Rewarded Ads
+**What was done:**
+- Built full **AI Coach Screen** (`app/(tabs)/coach.tsx`) replacing placeholder with conversational screen time coach.
+- Integrated real device usage metrics from `UsageRepository` so coach responses directly analyze today's foreground minutes, top apps, night-time usage, and category distribution.
+- Created **Coach Suggestion Engine** (`apps/mobile/src/features/coach/coachEngine.ts`) with intelligent contextual responses and structured cards (`breakdown`, `insight`, `swap`, `reductionPlan`, `goalAction`).
+- Implemented **Structured Coach Cards** (`apps/mobile/src/features/coach/CoachCard.tsx`) rendering app distribution bars, before/after swap recommendations, stepped reduction plans, and one-tap goal setting.
+- Built **Free Tier Quota Manager** (`apps/mobile/src/features/coach/coachQuota.ts`) with persistent storage (`expo-secure-store`), providing 10 default free suggestions, consumption logic, and reactive `useCoachQuota` hook.
+- Built **Full-Screen 30-Second Rewarded Ad Modal** (`apps/mobile/src/features/coach/RewardedAdModal.tsx`) with animated soundwaves, live 30-to-0 second countdown, progress bar, early exit prevention, and +3 suggestions unlock.
+- Built **Quota Paywall Modal** (`apps/mobile/src/features/coach/QuotaPaywallModal.tsx`) offering users the choice between Hourly Pro upgrade ($4.99/mo with unlimited suggestions) and watching a 30s rewarded ad (+3 suggestions).
+- Connected "Ask coach about this app" in `app-detail.tsx` and "Ask the Coach" in `(tabs)/index.tsx` with prefilled prompt deep-linking.
+- Added backend coach routes in `apps/api/src/routes/coach.ts` (`/v1/coach/quota`, `/v1/coach/ad-reward`, `/v1/coach/upgrade`, `/v1/coach/chat`) and mounted in API root.
+- Verified TypeScript compilation with 0 errors across all workspaces (`npm run typecheck`).
+
+**What the human should manually test:**
+1. **AI Coach Tab (`(tabs)/coach`):**
+   - Tap the **Coach** tab in the floating bottom navigation.
+   - Observe the initial greeting message analyzing today's device usage and displaying today's focus breakdown card.
+   - Check the top header badge showing **"10 Left"** (or current free quota).
+2. **Chat & Quick Suggestions:**
+   - Tap any suggestion chip (e.g. *"Where did my time go today?"* or *"Suggest swaps for mindless scrolling"*).
+   - Observe the typing indicator ("Analyzing your usage patterns...") and the structured response with swap suggestions or reduction plans.
+   - Note the quota badge decrementing by 1 (e.g. 10 -> 9).
+   - Tap **"Set Limit Goal"** inside any reduction plan card to see the instant feedback toast and haptic.
+3. **Quota Limit & Rewarded Ad:**
+   - Continue asking questions or tap the header quota pill to open the **Quota Paywall Modal**.
+   - Tap **"Watch 30s Ad (+3 Suggestions)"** to launch the full-screen rewarded ad.
+   - Watch the live 30-second countdown with animated soundwave visualizer.
+   - When the countdown finishes, tap **"Claim +3 AI Suggestions"** — verify that 3 suggestions are credited and a celebratory toast displays!
+4. **Upgrade to Pro:**
+   - Open the Quota Paywall Modal and tap **"Upgrade to Pro"** — verify that the badge changes to a gold **"PRO"** crown and unlocks unlimited coaching.
+
 ## Phase 5: AI reports
 **What was done:**
 - Implemented `UsageContext` builder (`apps/api/src/ai/usageContextBuilder.ts`) computing privacy-first pre-aggregated metrics from Postgres (`DailyAppUsage`, `Goal`, `ContentLog`).
