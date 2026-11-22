@@ -48,6 +48,7 @@ export default function CoachScreen() {
     isPremium,
     consumeSuggestion,
     resetQuota,
+    userEmail,
   } = useCoachQuota();
 
   // Modals state
@@ -97,6 +98,8 @@ export default function CoachScreen() {
           },
         ],
         followUpChips: [
+          'Want to reduce this screen time?',
+          'What is my day on day progress?',
           'Where did my time go today?',
           `How can I cut 30m of ${topApp.appName}?`,
           'Suggest swaps for mindless scrolling',
@@ -288,6 +291,23 @@ export default function CoachScreen() {
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        {/* Connected Account & Free AI Model Strip */}
+        <View style={[styles.accountStrip, { backgroundColor: isDark ? 'rgba(168, 85, 247, 0.12)' : 'rgba(168, 85, 247, 0.08)', borderColor: theme.border.glass }]}>
+          <View style={styles.accountStripLeft}>
+            <Sparkles size={13} color={theme.accent.violet} />
+            <Text style={[styles.accountStripText, { color: theme.text.primary, fontFamily: typography.fonts.uiMedium }]} numberOfLines={1}>
+              {userEmail ? `${userEmail} • Gemini & ChatGPT Free Tier` : 'Hourly AI • Connected to Phone Activity'}
+            </Text>
+          </View>
+          {usageSnapshot && (
+            <View style={[styles.dodTag, { backgroundColor: `${usageSnapshot.dayOnDayDirection === 'down' ? theme.semantic.good : theme.semantic.nudge}18` }]}>
+              <Text style={[styles.dodTagText, { color: usageSnapshot.dayOnDayDirection === 'down' ? theme.semantic.good : theme.semantic.nudge, fontFamily: typography.fonts.uiSemiBold }]}>
+                DoD {usageSnapshot.dayOnDayDirection === 'down' ? '-' : '+'}{Math.abs(usageSnapshot.dayOnDayDeltaMinutes)}m
+              </Text>
+            </View>
+          )}
+        </View>
+
         {/* Real-time Usage Snapshot Strip */}
         {usageSnapshot && (
           <View style={[styles.usageBanner, { backgroundColor: theme.card.highlight }]}>
@@ -589,6 +609,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  accountStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 7,
+    paddingHorizontal: spacing.base,
+    borderBottomWidth: 1,
+  },
+  accountStripLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    marginRight: spacing.xs,
+  },
+  accountStripText: {
+    fontSize: 11,
+    includeFontPadding: false,
+  },
+  dodTag: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  dodTagText: {
+    fontSize: 10,
+    includeFontPadding: false,
   },
   usageBannerText: {
     fontSize: 11,

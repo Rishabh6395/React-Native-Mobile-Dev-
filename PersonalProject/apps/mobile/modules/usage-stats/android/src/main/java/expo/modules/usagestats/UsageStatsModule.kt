@@ -44,8 +44,10 @@ class UsageStatsModule : Module() {
       val context = appContext.reactContext ?: return@Function emptyList<Map<String, Any>>()
       val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
       
-      val events = usageStatsManager.queryEvents(startMs.toLong(), endMs.toLong())
-      val usageMap = UsageStatsProcessor.processEvents(events, startMs.toLong(), endMs.toLong())
+      val now = System.currentTimeMillis()
+      val clampedEndMs = minOf(endMs.toLong(), now)
+      val events = usageStatsManager.queryEvents(startMs.toLong(), clampedEndMs)
+      val usageMap = UsageStatsProcessor.processEvents(events, startMs.toLong(), clampedEndMs)
       
       val pm = context.packageManager
       val result = mutableListOf<Map<String, Any>>()
@@ -82,10 +84,12 @@ class UsageStatsModule : Module() {
       val context = appContext.reactContext ?: return@Function emptyList<Map<String, Any>>()
       val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
       
+      val now = System.currentTimeMillis()
       val cal = Calendar.getInstance()
       cal.timeInMillis = dayStartMs.toLong()
       cal.add(Calendar.DAY_OF_MONTH, 1)
-      val endMs = cal.timeInMillis
+      val dayEndMs = cal.timeInMillis
+      val endMs = minOf(dayEndMs, now)
       
       val events = usageStatsManager.queryEvents(dayStartMs.toLong(), endMs)
       val buckets = UsageStatsProcessor.getHourlyUsage(events, dayStartMs.toLong(), endMs)

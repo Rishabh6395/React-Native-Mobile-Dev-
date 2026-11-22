@@ -173,6 +173,7 @@ export function getTopApps(usage: AppUsage[], count: number = 3): TopApp[] {
  * e.g. 7920000 → '2h 12m', 2700000 → '45m', 45000 → '<1m'
  */
 export function formatMs(ms: number): string {
+  if (ms <= 0) return '0m';
   if (ms < 60000) return '<1m';
   const totalMinutes = Math.floor(ms / 60000);
   const hours = Math.floor(totalMinutes / 60);
@@ -238,10 +239,13 @@ export function startOfDay(date: Date = new Date()): Date {
 }
 
 /**
- * Get date string in YYYY-MM-DD format
+ * Get date string in local YYYY-MM-DD format (avoids UTC timezone shift)
  */
 export function toDateStr(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**

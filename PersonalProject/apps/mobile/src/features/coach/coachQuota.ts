@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { getUser } from '../../lib/auth';
 
 const QUOTA_STORAGE_KEY = 'hourly_ai_coach_quota_v1';
 export const DEFAULT_FREE_SUGGESTIONS = 10;
@@ -115,7 +116,8 @@ export function getCoachQuota(): CoachQuotaState {
 export async function consumeCoachSuggestion(): Promise<{ allowed: boolean; remaining: number }> {
   await initCoachQuota();
 
-  if (memoryState.isPremium) {
+  const user = await getUser();
+  if (user?.email || memoryState.isPremium) {
     return { allowed: true, remaining: Infinity };
   }
 
@@ -178,9 +180,13 @@ export async function resetCoachQuota(): Promise<CoachQuotaState> {
  */
 export function useCoachQuota() {
   const [state, setState] = useState<CoachQuotaState>(memoryState);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     initCoachQuota().then((s) => setState(s));
+    getUser().then((u) => {
+      if (u?.email) setUserEmail(u.email);
+    });
 
     const handleUpdate = (updated: CoachQuotaState) => {
       setState(updated);
@@ -208,9 +214,15 @@ export function useCoachQuota() {
     return await resetCoachQuota();
   }, []);
 
+  const isGoogleUser = Boolean(userEmail);
+  const effectiveIsPremium = isGoogleUser || state.isPremium;
+
   return {
     ...state,
-    canSuggest: state.isPremium || state.suggestionsRemaining > 0,
+    isPremium: effectiveIsPremium,
+    userEmail,
+    suggestionsRemaining: effectiveIsPremium ? Infinity : state.suggestionsRemaining,
+    canSuggest: effectiveIsPremium || state.suggestionsRemaining > 0,
     consumeSuggestion: consume,
     unlockSuggestionsFromAd: unlockFromAd,
     upgradeToPremium: upgrade,

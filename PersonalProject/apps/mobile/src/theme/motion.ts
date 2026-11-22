@@ -74,46 +74,57 @@ const doSelection = () => {
   } catch {}
 };
 
-const isWorkletRuntime = () => {
-  'worklet';
-  return typeof _WORKLET !== 'undefined' && Boolean(_WORKLET);
-};
-
-const safeHaptic = (action: () => void) => {
-  'worklet';
-  if (isWorkletRuntime()) {
-    runOnJS(action)();
-  } else {
-    action();
-  }
-};
-
 /**
- * Safe haptic feedback triggers with error boundary and worklet-safe dispatch
+ * Safe haptic feedback triggers with worklet-safe direct dispatch.
+ * Calls runOnJS only when executed on UI runtime, or calls directly on JS thread.
  */
 export const triggerHaptic = {
   light: () => {
     'worklet';
-    safeHaptic(doLight);
+    if (typeof _WORKLET !== 'undefined' && _WORKLET) {
+      runOnJS(doLight)();
+    } else {
+      doLight();
+    }
   },
   medium: () => {
     'worklet';
-    safeHaptic(doMedium);
+    if (typeof _WORKLET !== 'undefined' && _WORKLET) {
+      runOnJS(doMedium)();
+    } else {
+      doMedium();
+    }
   },
   heavy: () => {
     'worklet';
-    safeHaptic(doHeavy);
+    if (typeof _WORKLET !== 'undefined' && _WORKLET) {
+      runOnJS(doHeavy)();
+    } else {
+      doHeavy();
+    }
   },
   success: () => {
     'worklet';
-    safeHaptic(doSuccess);
+    if (typeof _WORKLET !== 'undefined' && _WORKLET) {
+      runOnJS(doSuccess)();
+    } else {
+      doSuccess();
+    }
   },
   warning: () => {
     'worklet';
-    safeHaptic(doWarning);
+    if (typeof _WORKLET !== 'undefined' && _WORKLET) {
+      runOnJS(doWarning)();
+    } else {
+      doWarning();
+    }
   },
   selection: () => {
     'worklet';
-    safeHaptic(doSelection);
+    if (typeof _WORKLET !== 'undefined' && _WORKLET) {
+      runOnJS(doSelection)();
+    } else {
+      doSelection();
+    }
   },
 };

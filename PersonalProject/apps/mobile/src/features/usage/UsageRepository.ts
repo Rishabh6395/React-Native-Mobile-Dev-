@@ -89,6 +89,16 @@ export class UsageRepository {
   }
 
   /**
+   * Refreshes today and yesterday to ensure day-on-day data is fully accurate
+   */
+  async refreshAllRecent() {
+    await this.refreshToday();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    await this.refreshDate(yesterday);
+  }
+
+  /**
    * Refresh a specific date's usage data
    */
   async refreshDate(date: Date) {
@@ -103,8 +113,8 @@ export class UsageRepository {
   }
 
   /**
-   * Backfill as many past days as Android allows (~7-10 days).
-   * Called on first run to populate history.
+   * Backfill as many past days as Android allows (~7-14 days).
+   * Called to populate history for week/month views.
    */
   async backfillAvailableHistory() {
     if (!hasUsageAccess() || this.isBackfilling) return;
@@ -112,8 +122,8 @@ export class UsageRepository {
 
     try {
       const today = new Date();
-      // Android typically keeps 7-10 days of usage events
-      const maxDays = 10;
+      // Android typically keeps 7-14 days of usage events
+      const maxDays = 14;
 
       for (let i = 1; i <= maxDays; i++) {
         const date = new Date(today);
@@ -130,6 +140,8 @@ export class UsageRepository {
 
         await this.refreshDate(date);
       }
+    } catch (e) {
+      console.warn('Backfill history error:', e);
     } finally {
       this.isBackfilling = false;
     }
@@ -145,6 +157,8 @@ export class UsageRepository {
 
     await this.runSerializedWrite(async () => {
       await db.withTransactionAsync(async () => {
+        // Clean out stale records for this specific date before inserting fresh batch
+        await db.runAsync(`DELETE FROM daily_usage WHERE date = ?`, [dateStr]);
         for (const app of usage) {
           await db.runAsync(
             `INSERT OR REPLACE INTO daily_usage 

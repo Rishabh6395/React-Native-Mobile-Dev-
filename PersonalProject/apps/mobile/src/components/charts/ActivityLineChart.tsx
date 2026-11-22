@@ -6,7 +6,7 @@
  * scrub-to-inspect with glowing dot and haptics.
  */
 
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
 import Svg, {
   Path,
@@ -21,7 +21,6 @@ import Animated, {
   withTiming,
   useReducedMotion,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 import {
   Gesture,
@@ -107,7 +106,7 @@ export const ActivityLineChart: React.FC<ActivityLineChartProps> = ({
 
   const [containerWidth, setContainerWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const lastHapticIndex = useSharedValue(-1);
+  const lastHapticIndex = useRef(-1);
 
   const startColor = accentColor || theme.accent.violet;
   const endColor = accentColorEnd || theme.accent.aqua;
@@ -174,16 +173,21 @@ export const ActivityLineChart: React.FC<ActivityLineChartProps> = ({
     opacity: drawProgress.value,
   }));
 
-  // Label indices
-  const labelIndices = useMemo(() => {
-    const set = new Set<number>();
-    if (data.length > 0) {
-      const step = Math.max(1, Math.ceil(data.length / maxLabels));
-      for (let i = 0; i < data.length; i += step) set.add(i);
-      set.add(data.length - 1);
+  // Label items with positions
+  const visibleLabels = useMemo(() => {
+    if (data.length === 0 || points.length === 0) return [];
+    const step = Math.max(1, Math.ceil(data.length / maxLabels));
+    const indices: number[] = [];
+    for (let i = 0; i < data.length; i += step) indices.push(i);
+    if (!indices.includes(data.length - 1)) {
+      indices.push(data.length - 1);
     }
-    return set;
-  }, [data.length, maxLabels]);
+    return indices.map((idx) => ({
+      index: idx,
+      label: data[idx].label,
+      x: points[idx]?.x ?? (idx / (data.length - 1)) * containerWidth,
+    }));
+  }, [data, points, maxLabels, containerWidth]);
 
   // Scrubbing
   const handleScrubUpdate = useCallback(
@@ -219,27 +223,28 @@ export const ActivityLineChart: React.FC<ActivityLineChartProps> = ({
   );
 
   const panGesture = Gesture.Pan()
+    .runOnJS(true)
     .onStart((e) => {
       const idx = getIndexFromX(e.x);
-      lastHapticIndex.value = idx;
+      lastHapticIndex.current = idx;
       triggerHaptic.selection();
-      runOnJS(handleScrubUpdate)(idx);
+      handleScrubUpdate(idx);
     })
     .onUpdate((e) => {
       const idx = getIndexFromX(e.x);
-      if (idx !== lastHapticIndex.value) {
-        lastHapticIndex.value = idx;
+      if (idx !== lastHapticIndex.current) {
+        lastHapticIndex.current = idx;
         triggerHaptic.light();
-        runOnJS(handleScrubUpdate)(idx);
+        handleScrubUpdate(idx);
       }
     })
     .onEnd(() => {
-      lastHapticIndex.value = -1;
-      runOnJS(handleScrubEndJS)();
+      lastHapticIndex.current = -1;
+      handleScrubEndJS();
     })
     .onFinalize(() => {
-      lastHapticIndex.value = -1;
-      runOnJS(handleScrubEndJS)();
+      lastHapticIndex.current = -1;
+      handleScrubEndJS();
     });
 
   const activePt = activeIndex !== null ? points[activeIndex] : null;
@@ -349,32 +354,30 @@ export const ActivityLineChart: React.FC<ActivityLineChartProps> = ({
       </GestureDetector>
 
       {/* X-axis labels */}
-      {showLabels && containerWidth > 0 && (
+      {showLabels && containerWidth > 0 && visibleLabels.length > 0 && (
         <View style={styles.labelsRow}>
-          {data.map((point, index) => {
-            const pxPerItem = containerWidth / data.length;
+          {visibleLabels.map((item) => {
+            const labelWidth = 56;
+            const left = Math.max(0, Math.min(containerWidth - labelWidth, item.x - labelWidth / 2));
+            const isSelected = activeIndex === item.index;
+
             return (
               <View
-                key={index}
-                style={[styles.labelCell, { width: pxPerItem }]}
+                key={item.index}
+                style={[styles.labelAbsoluteWrapper, { left, width: labelWidth }]}
               >
-                {labelIndices.has(index) && (
-                  <Text
-                    style={[
-                      styles.labelText,
-                      {
-                        color:
-                          activeIndex === index
-                            ? theme.text.primary
-                            : theme.text.tertiary,
-                        fontFamily: typography.fonts.uiMedium,
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {point.label}
-                  </Text>
-                )}
+                <Text
+                  style={[
+                    styles.labelText,
+                    {
+                      color: isSelected ? theme.text.primary : theme.text.tertiary,
+                      fontFamily: typography.fonts.uiMedium,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {item.label}
+                </Text>
               </View>
             );
           })}
@@ -404,14 +407,19 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   labelsRow: {
-    flexDirection: 'row',
+    position: 'relative',
     marginTop: spacing.xs,
+    height: 18,
   },
-  labelCell: {
+  labelAbsoluteWrapper: {
+    position: 'absolute',
+    top: 0,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   labelText: {
     fontSize: 10,
+    textAlign: 'center',
     includeFontPadding: false,
   },
 });

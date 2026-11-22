@@ -37,6 +37,7 @@ import {
   AppIcon,
   Skeleton,
   Pressable3D,
+  AiSuggestionCard,
 } from '../src/components/ui';
 import { BarChart, MiniTimeline, BarDataPoint } from '../src/components/charts';
 import { layout, spacing, typography, getAppColor } from '../src/theme/tokens';
@@ -236,6 +237,18 @@ export default function AppDetailScreen() {
       </Card>
 
       {/* Stats Grid */}
+      <AiSuggestionCard
+        screen="app-detail"
+        appName={appName}
+        packageName={packageName}
+        totalMinutes={Math.round(todayMs / 60000)}
+        topApp={{
+          appName: appName || packageName || 'App',
+          minutes: Math.round(todayMs / 60000),
+          category: category || 'Other',
+        }}
+      />
+
       <View style={styles.statsGrid}>
         <StatCard
           icon={<Zap size={18} color={theme.semantic.nudge} />}

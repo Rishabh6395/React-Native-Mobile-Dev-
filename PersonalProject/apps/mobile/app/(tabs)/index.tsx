@@ -40,6 +40,7 @@ import {
   EmptyState,
   Pill,
   Pressable3D,
+  AiSuggestionCard,
 } from '../../src/components/ui';
 import { ActivityLineChart, LineDataPoint } from '../../src/components/charts';
 import { layout, spacing, typography, getAppColor, glassShadow } from '../../src/theme/tokens';
@@ -59,7 +60,7 @@ export default function HomeScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      await usageRepository.refreshToday();
+      await usageRepository.refreshAllRecent();
       const todayUsage = await usageRepository.getTodayUsage();
       setUsage(todayUsage);
       setTopApps(getTopApps(todayUsage, 3));
@@ -176,7 +177,7 @@ export default function HomeScreen() {
           <View style={styles.heroRingInner}>
             <AnimatedNumber
               value={totalMinutes}
-              format={() => formatMs(totalMs)}
+              format={(val) => formatMs(val * 60000)}
               style={[
                 styles.heroTimeText,
                 {
@@ -204,6 +205,16 @@ export default function HomeScreen() {
           </View>
         </ProgressRing>
       </Card>
+
+      {/* AI Contextual Suggestion (Gemini / Free Tier) */}
+      <AiSuggestionCard
+        screen="home"
+        totalMinutes={totalMinutes}
+        topApp={topApps[0] ? { appName: topApps[0].appName, minutes: Math.round(topApps[0].foregroundMs / 60000), category: topApps[0].category } : undefined}
+        deltaMinutes={Math.round(delta.deltaMs / 60000)}
+        deltaPct={delta.deltaPct}
+        deltaDirection={delta.direction}
+      />
 
       {/* Activity Line Chart */}
       <Card style={styles.chartCard} padding="base">
@@ -323,60 +334,6 @@ export default function HomeScreen() {
           ))}
         </View>
       )}
-
-      {/* Coach Insight Card */}
-      <GlowCard style={styles.coachCard} padding="base" glassBlur>
-        <View style={styles.coachHeader}>
-          <View
-            style={[
-              styles.coachIconCircle,
-              glassShadow,
-              { backgroundColor: theme.accent.violet },
-            ]}
-          >
-            <Sparkles size={14} color="#FFFFFF" />
-          </View>
-          <Text
-            style={[
-              styles.coachTitle,
-              {
-                color: theme.text.primary,
-                fontFamily: typography.fonts.uiSemiBold,
-              },
-            ]}
-          >
-            Coach Insight
-          </Text>
-        </View>
-        <Text
-          style={[
-            styles.coachBody,
-            {
-              color: theme.text.secondary,
-              fontFamily: typography.fonts.uiRegular,
-            },
-          ]}
-        >
-          {usage.length > 0
-            ? `${usage[0].appName} took the most focus today (${formatMs(
-                usage[0].foregroundMs
-              )}). Consider a gentle swap if you're winding down.`
-            : 'Welcome! Your device usage metrics will calibrate as you use apps today.'}
-        </Text>
-        <View style={styles.coachChips}>
-          <Pill
-            label="View Full Report"
-            size="sm"
-            active
-            onPress={() => router.push('/(tabs)/reports')}
-          />
-          <Pill
-            label="Ask the Coach"
-            size="sm"
-            onPress={() => router.push('/(tabs)/coach')}
-          />
-        </View>
-      </GlowCard>
 
       {/* Empty State */}
       {usage.length === 0 && (

@@ -38,6 +38,10 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
       return;
     }
 
+    const startVal = displayValue;
+    const diff = value - startVal;
+    if (diff === 0) return;
+
     animValue.value = withTiming(
       value,
       {
@@ -53,9 +57,7 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
 
     // Update displayed value smoothly
     const interval = 30; // ~33fps JS tick for text rendering
-    const steps = duration / interval;
-    const startVal = displayValue;
-    const diff = value - startVal;
+    const steps = Math.max(1, duration / interval);
     let step = 0;
 
     const timer = setInterval(() => {

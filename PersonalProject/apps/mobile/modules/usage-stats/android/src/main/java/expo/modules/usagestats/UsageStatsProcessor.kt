@@ -23,54 +23,65 @@ class HourBucket(
 )
 
 object UsageStatsProcessor {
+    private const val MAX_SESSION_DURATION_MS = 2 * 60 * 60 * 1000L // 2 hours safety ceiling
+
     fun processEvents(events: UsageEvents, startMs: Long, endMs: Long): Map<String, AppUsageData> {
         val usageMap = mutableMapOf<String, AppUsageData>()
-        val currentSessions = mutableMapOf<String, Long>()
+        var currentPkg: String? = null
+        var currentSessionStart: Long = 0L
+
+        fun closeCurrentSession(closeTime: Long) {
+            val pkg = currentPkg ?: return
+            val clampedClose = closeTime.coerceIn(startMs, endMs)
+            val rawDuration = clampedClose - currentSessionStart
+            val duration = minOf(rawDuration, MAX_SESSION_DURATION_MS)
+            if (duration > 0) {
+                val data = usageMap.getOrPut(pkg) { AppUsageData(packageName = pkg) }
+                data.foregroundMs += duration
+                data.sessions += 1
+                if (isNightTime(currentSessionStart) || isNightTime(clampedClose)) {
+                    data.nightMs += duration
+                }
+            }
+            currentPkg = null
+            currentSessionStart = 0L
+        }
 
         val event = UsageEvents.Event()
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            val pkg = event.packageName
+            val pkg = event.packageName ?: continue
             val time = event.timeStamp
-            
             val clampedTime = time.coerceIn(startMs, endMs)
 
-            if (!usageMap.containsKey(pkg)) {
-                usageMap[pkg] = AppUsageData(packageName = pkg)
-            }
-            val data = usageMap[pkg]!!
-
-            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                if (!currentSessions.containsKey(pkg)) {
-                    currentSessions[pkg] = clampedTime
-                    data.launches += 1
-                }
-            } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED || event.eventType == UsageEvents.Event.ACTIVITY_STOPPED) {
-                if (currentSessions.containsKey(pkg)) {
-                    val sessionStart = currentSessions.remove(pkg)!!
-                    val sessionDuration = clampedTime - sessionStart
-                    if (sessionDuration > 0) {
-                        data.foregroundMs += sessionDuration
-                        data.sessions += 1
-                        
-                        if (isNightTime(sessionStart) || isNightTime(clampedTime)) {
-                            data.nightMs += sessionDuration
-                        }
+            when (event.eventType) {
+                UsageEvents.Event.ACTIVITY_RESUMED -> {
+                    if (currentPkg != null && currentPkg != pkg) {
+                        closeCurrentSession(clampedTime)
                     }
+                    if (currentPkg == null) {
+                        currentPkg = pkg
+                        currentSessionStart = clampedTime
+                        val data = usageMap.getOrPut(pkg) { AppUsageData(packageName = pkg) }
+                        data.launches += 1
+                    }
+                }
+                UsageEvents.Event.ACTIVITY_PAUSED,
+                UsageEvents.Event.ACTIVITY_STOPPED -> {
+                    if (currentPkg == pkg) {
+                        closeCurrentSession(clampedTime)
+                    }
+                }
+                UsageEvents.Event.SCREEN_NON_INTERACTIVE,
+                UsageEvents.Event.KEYGUARD_SHOWN,
+                26 /* DEVICE_SHUTDOWN */ -> {
+                    closeCurrentSession(clampedTime)
                 }
             }
         }
-        
-        for ((pkg, sessionStart) in currentSessions) {
-            val data = usageMap[pkg]!!
-            val sessionDuration = endMs - sessionStart
-            if (sessionDuration > 0) {
-                data.foregroundMs += sessionDuration
-                data.sessions += 1
-                if (isNightTime(sessionStart) || isNightTime(endMs)) {
-                    data.nightMs += sessionDuration
-                }
-            }
+
+        if (currentPkg != null) {
+            closeCurrentSession(endMs)
         }
 
         return usageMap
@@ -78,71 +89,119 @@ object UsageStatsProcessor {
     
     fun getHourlyUsage(events: UsageEvents, startMs: Long, endMs: Long): List<HourBucket> {
         val buckets = Array(24) { HourBucket(it) }
-        val currentSessions = mutableMapOf<String, Long>()
-        
+        var currentPkg: String? = null
+        var currentSessionStart: Long = 0L
+
+        fun closeCurrentSession(closeTime: Long) {
+            if (currentPkg == null) return
+            val clampedClose = closeTime.coerceIn(startMs, endMs)
+            val rawDuration = clampedClose - currentSessionStart
+            val duration = minOf(rawDuration, MAX_SESSION_DURATION_MS)
+            if (duration > 0) {
+                addDurationToBuckets(buckets, currentSessionStart, currentSessionStart + duration)
+            }
+            currentPkg = null
+            currentSessionStart = 0L
+        }
+
         val event = UsageEvents.Event()
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            val pkg = event.packageName
+            val pkg = event.packageName ?: continue
             val time = event.timeStamp
-            
             val clampedTime = time.coerceIn(startMs, endMs)
 
-            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                if (!currentSessions.containsKey(pkg)) {
-                    currentSessions[pkg] = clampedTime
+            when (event.eventType) {
+                UsageEvents.Event.ACTIVITY_RESUMED -> {
+                    if (currentPkg != null && currentPkg != pkg) {
+                        closeCurrentSession(clampedTime)
+                    }
+                    if (currentPkg == null) {
+                        currentPkg = pkg
+                        currentSessionStart = clampedTime
+                    }
                 }
-            } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED || event.eventType == UsageEvents.Event.ACTIVITY_STOPPED) {
-                if (currentSessions.containsKey(pkg)) {
-                    val sessionStart = currentSessions.remove(pkg)!!
-                    addDurationToBuckets(buckets, sessionStart, clampedTime)
+                UsageEvents.Event.ACTIVITY_PAUSED,
+                UsageEvents.Event.ACTIVITY_STOPPED -> {
+                    if (currentPkg == pkg) {
+                        closeCurrentSession(clampedTime)
+                    }
+                }
+                UsageEvents.Event.SCREEN_NON_INTERACTIVE,
+                UsageEvents.Event.KEYGUARD_SHOWN,
+                26 /* DEVICE_SHUTDOWN */ -> {
+                    closeCurrentSession(clampedTime)
                 }
             }
         }
-        
-        for ((_, sessionStart) in currentSessions) {
-            addDurationToBuckets(buckets, sessionStart, endMs)
+
+        if (currentPkg != null) {
+            closeCurrentSession(endMs)
         }
-        
+
         return buckets.toList()
     }
     
     fun getSessions(events: UsageEvents, startMs: Long, endMs: Long): List<SessionData> {
         val sessionsList = mutableListOf<SessionData>()
-        val currentSessions = mutableMapOf<String, Long>()
-        
+        var currentPkg: String? = null
+        var currentSessionStart: Long = 0L
+
+        fun closeCurrentSession(closeTime: Long) {
+            val pkg = currentPkg ?: return
+            val clampedClose = closeTime.coerceIn(startMs, endMs)
+            val rawDuration = clampedClose - currentSessionStart
+            val duration = minOf(rawDuration, MAX_SESSION_DURATION_MS)
+            if (duration > 0) {
+                sessionsList.add(SessionData(pkg, currentSessionStart, currentSessionStart + duration))
+            }
+            currentPkg = null
+            currentSessionStart = 0L
+        }
+
         val event = UsageEvents.Event()
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            val pkg = event.packageName
+            val pkg = event.packageName ?: continue
             val time = event.timeStamp
-            
             val clampedTime = time.coerceIn(startMs, endMs)
 
-            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                if (!currentSessions.containsKey(pkg)) {
-                    currentSessions[pkg] = clampedTime
+            when (event.eventType) {
+                UsageEvents.Event.ACTIVITY_RESUMED -> {
+                    if (currentPkg != null && currentPkg != pkg) {
+                        closeCurrentSession(clampedTime)
+                    }
+                    if (currentPkg == null) {
+                        currentPkg = pkg
+                        currentSessionStart = clampedTime
+                    }
                 }
-            } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED || event.eventType == UsageEvents.Event.ACTIVITY_STOPPED) {
-                if (currentSessions.containsKey(pkg)) {
-                    val sessionStart = currentSessions.remove(pkg)!!
-                    sessionsList.add(SessionData(pkg, sessionStart, clampedTime))
+                UsageEvents.Event.ACTIVITY_PAUSED,
+                UsageEvents.Event.ACTIVITY_STOPPED -> {
+                    if (currentPkg == pkg) {
+                        closeCurrentSession(clampedTime)
+                    }
+                }
+                UsageEvents.Event.SCREEN_NON_INTERACTIVE,
+                UsageEvents.Event.KEYGUARD_SHOWN,
+                26 /* DEVICE_SHUTDOWN */ -> {
+                    closeCurrentSession(clampedTime)
                 }
             }
         }
-        
-        for ((pkg, sessionStart) in currentSessions) {
-            sessionsList.add(SessionData(pkg, sessionStart, endMs))
+
+        if (currentPkg != null) {
+            closeCurrentSession(endMs)
         }
-        
+
         return sessionsList
     }
 
     private fun addDurationToBuckets(buckets: Array<HourBucket>, start: Long, end: Long) {
+        if (start >= end) return
         val cal = java.util.Calendar.getInstance()
-        cal.timeInMillis = start
-        
         var currentMs = start
+
         while (currentMs < end) {
             cal.timeInMillis = currentMs
             val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
@@ -150,13 +209,14 @@ object UsageStatsProcessor {
             cal.set(java.util.Calendar.MINUTE, 59)
             cal.set(java.util.Calendar.SECOND, 59)
             cal.set(java.util.Calendar.MILLISECOND, 999)
-            val endOfHour = cal.timeInMillis
+            val endOfHour = cal.timeInMillis + 1L
             
-            val durationInThisHour = minOf(end, endOfHour) - currentMs + 1
-            if (durationInThisHour > 0) {
+            val segmentEnd = minOf(end, endOfHour)
+            val durationInThisHour = segmentEnd - currentMs
+            if (durationInThisHour > 0 && hour in 0..23) {
                 buckets[hour].foregroundMs += durationInThisHour
             }
-            currentMs = endOfHour + 1
+            currentMs = segmentEnd
         }
     }
 

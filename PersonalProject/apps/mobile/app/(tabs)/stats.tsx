@@ -41,6 +41,7 @@ import {
   Skeleton,
   EmptyState,
   Pressable3D,
+  AiSuggestionCard,
 } from '../../src/components/ui';
 import {
   ActivityLineChart,
@@ -74,6 +75,7 @@ export default function StatsScreen() {
   // Data states
   const [lineData, setLineData] = useState<LineDataPoint[]>([]);
   const [categories, setCategories] = useState<CategoryAggregate[]>([]);
+  const [allApps, setAllApps] = useState<AppUsage[]>([]);
   const [rankedApps, setRankedApps] = useState<AppRankedItem[]>([]);
   const [totalMs, setTotalMs] = useState(0);
   const [delta, setDelta] = useState<Delta>({ deltaMs: 0, deltaPct: 0, direction: 'flat' });
@@ -96,7 +98,7 @@ export default function StatsScreen() {
   }, [range]);
 
   const fetchDayData = async () => {
-    await usageRepository.refreshToday();
+    await usageRepository.refreshAllRecent();
     const todayUsage = await usageRepository.getTodayUsage();
     const hourly = usageRepository.getHourlyUsageToday();
 
@@ -111,6 +113,7 @@ export default function StatsScreen() {
     setLineData(hourlyPoints);
 
     setCategories(aggregateByCategory(todayUsage));
+    setAllApps(todayUsage);
 
     const total = todayUsage.reduce((s, a) => s + a.foregroundMs, 0);
     setTotalMs(total);
@@ -129,12 +132,14 @@ export default function StatsScreen() {
   };
 
   const fetchWeekData = async () => {
+    await usageRepository.backfillAvailableHistory();
     const weekRows = await usageRepository.getWeekUsage();
     const prevWeekRows = await usageRepository.getPreviousWeekUsage();
     processRangeData(weekRows, prevWeekRows, 7, false);
   };
 
   const fetchMonthData = async () => {
+    await usageRepository.backfillAvailableHistory();
     const monthRows = await usageRepository.getMonthUsage();
     const prevMonthRows = await usageRepository.getPreviousMonthUsage();
     processRangeData(monthRows, prevMonthRows, 30, true);
@@ -161,6 +166,7 @@ export default function StatsScreen() {
 
     const mergedUsage = mergeUsageRows(rows);
     setCategories(aggregateByCategory(mergedUsage));
+    setAllApps(mergedUsage);
 
     const total = mergedUsage.reduce((s, a) => s + a.foregroundMs, 0);
     setTotalMs(total);
@@ -397,6 +403,16 @@ export default function StatsScreen() {
         </View>
       </View>
 
+      {/* AI Contextual Suggestion (Gemini / Free Tier) */}
+      <AiSuggestionCard
+        screen="stats"
+        totalMinutes={Math.round(totalMs / 60000)}
+        topApp={rankedApps[0] ? { appName: rankedApps[0].appName, minutes: Math.round(rankedApps[0].foregroundMs / 60000), category: rankedApps[0].category } : undefined}
+        deltaMinutes={Math.round(delta.deltaMs / 60000)}
+        deltaPct={delta.deltaPct}
+        deltaDirection={delta.direction}
+      />
+
       {/* Line Chart */}
       <Card style={styles.chartCard} padding="base">
         <ActivityLineChart
@@ -418,7 +434,21 @@ export default function StatsScreen() {
           >
             CATEGORIES
           </Text>
-          <CategoryBars data={categories} totalMs={totalMs} />
+          <CategoryBars
+            data={categories}
+            totalMs={totalMs}
+            apps={allApps}
+            onAppPress={(app) =>
+              router.push({
+                pathname: '/app-detail',
+                params: {
+                  packageName: app.packageName,
+                  appName: app.appName,
+                  category: app.category,
+                },
+              })
+            }
+          />
         </View>
       )}
 

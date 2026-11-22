@@ -20,6 +20,7 @@ import {
   Pill,
   Card,
   Skeleton,
+  AiSuggestionCard,
 } from '../../src/components/ui';
 import {
   useReports,
@@ -140,6 +141,9 @@ export default function ReportsScreen() {
             />
           </Card>
         )}
+
+        {/* AI Weekly Synthesis & Suggestions */}
+        <AiSuggestionCard screen="reports" />
 
         {/* Loading Skeletons */}
         {isLoading ? (

@@ -14,3 +14,4 @@ export * from './Sheet';
 export * from './TabBar';
 export * from './Header';
 export * from './Screen';
+export * from './AiSuggestionCard';

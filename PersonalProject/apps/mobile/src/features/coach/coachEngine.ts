@@ -1,4 +1,6 @@
-import { UsageRepository } from '../usage/UsageRepository';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+import { usageRepository } from '../usage/UsageRepository';
 import { AppUsage } from '../../../modules/usage-stats';
 
 export interface StructuredCoachCard {
@@ -38,86 +40,197 @@ export interface CoachMessage {
   timestamp: string;
   cards?: StructuredCoachCard[];
   followUpChips?: string[];
+  modelUsed?: 'gemini' | 'claude' | 'local';
 }
 
 export interface AggregatedUsageSnapshot {
   totalMinutes: number;
+  yesterdayTotalMinutes: number;
+  dayOnDayDeltaMinutes: number;
+  dayOnDayDeltaPct: number;
+  dayOnDayDirection: 'up' | 'down' | 'flat';
+  weekAverageMinutes: number;
   topApps: Array<{
     packageName: string;
     appName: string;
     minutes: number;
     category: string;
+    launches?: number;
+    sessions?: number;
+    nightMinutes?: number;
+    yesterdayMinutes?: number;
+  }>;
+  yesterdayApps: Array<{
+    packageName: string;
+    appName: string;
+    minutes: number;
   }>;
   categories: Record<string, number>;
+  topCategory: string;
   nightMinutes: number;
+  totalLaunches: number;
+  mostLaunchedApp?: { appName: string; launches: number };
 }
 
-const FALLBACK_USAGE: AggregatedUsageSnapshot = {
-  totalMinutes: 195, // 3h 15m
-  topApps: [
-    { packageName: 'com.instagram.android', appName: 'Instagram', minutes: 78, category: 'Social' },
-    { packageName: 'com.google.android.youtube', appName: 'YouTube', minutes: 54, category: 'Video' },
-    { packageName: 'com.whatsapp', appName: 'WhatsApp', minutes: 32, category: 'Communication' },
-    { packageName: 'com.android.chrome', appName: 'Chrome', minutes: 19, category: 'Productivity' },
-    { packageName: 'com.reddit.frontpage', appName: 'Reddit', minutes: 12, category: 'Social' },
-  ],
-  categories: {
-    Social: 90,
-    Video: 54,
-    Communication: 32,
-    Productivity: 19,
-  },
-  nightMinutes: 45,
+const EMPTY_USAGE: AggregatedUsageSnapshot = {
+  totalMinutes: 0,
+  yesterdayTotalMinutes: 0,
+  dayOnDayDeltaMinutes: 0,
+  dayOnDayDeltaPct: 0,
+  dayOnDayDirection: 'flat',
+  weekAverageMinutes: 0,
+  topApps: [],
+  yesterdayApps: [],
+  categories: {},
+  topCategory: 'None',
+  nightMinutes: 0,
+  totalLaunches: 0,
 };
 
-const repository = new UsageRepository();
+const GEMINI_API_KEY_STORAGE = 'hourly_gemini_api_key';
 
 /**
- * Fetch today's aggregated usage for coach context
+ * Retrieve user-saved Gemini API key (or environment variable fallback)
+ */
+export async function getStoredGeminiKey(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    try {
+      return localStorage.getItem(GEMINI_API_KEY_STORAGE);
+    } catch {
+      return null;
+    }
+  }
+  return await SecureStore.getItemAsync(GEMINI_API_KEY_STORAGE);
+}
+
+/**
+ * Persist user-configured Gemini / OpenAI API key
+ */
+export async function saveStoredGeminiKey(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    try {
+      if (key.trim()) {
+        localStorage.setItem(GEMINI_API_KEY_STORAGE, key.trim());
+      } else {
+        localStorage.removeItem(GEMINI_API_KEY_STORAGE);
+      }
+    } catch {}
+    return;
+  }
+  if (key.trim()) {
+    await SecureStore.setItemAsync(GEMINI_API_KEY_STORAGE, key.trim());
+  } else {
+    await SecureStore.deleteItemAsync(GEMINI_API_KEY_STORAGE);
+  }
+}
+
+/**
+ * Fetch rich device usage snapshot (today, yesterday, day-on-day, categories, launches)
  */
 export async function getCoachUsageSnapshot(): Promise<AggregatedUsageSnapshot> {
   try {
-    const todayUsage: AppUsage[] = await repository.getTodayUsage();
+    let todayUsage: AppUsage[] = await usageRepository.getTodayUsage();
     if (!todayUsage || todayUsage.length === 0) {
-      return FALLBACK_USAGE;
+      await usageRepository.refreshToday();
+      todayUsage = await usageRepository.getTodayUsage();
     }
+    const yesterdayUsage: AppUsage[] = await usageRepository.getPreviousDayUsage();
+    const weekRows = await usageRepository.getWeekUsage();
 
     let totalForegroundMs = 0;
     let nightMs = 0;
+    let totalLaunches = 0;
     const categoryTotals: Record<string, number> = {};
+
+    const yesterdayMap = new Map<string, number>();
+    for (const y of yesterdayUsage) {
+      yesterdayMap.set(y.packageName, Math.round(y.foregroundMs / 60000));
+    }
+    const yesterdayTotalMs = yesterdayUsage.reduce((s, a) => s + a.foregroundMs, 0);
+    const yesterdayTotalMinutes = Math.round(yesterdayTotalMs / 60000);
+
+    let mostLaunchedApp: { appName: string; launches: number } | undefined;
 
     const topApps = todayUsage
       .filter((app) => app.foregroundMs > 0)
-      .slice(0, 6)
+      .sort((a, b) => b.foregroundMs - a.foregroundMs)
+      .slice(0, 15)
       .map((app) => {
         totalForegroundMs += app.foregroundMs;
         nightMs += app.nightMs || 0;
+        totalLaunches += app.launches || 0;
         const cat = app.category || 'Other';
         const mins = Math.round(app.foregroundMs / 60000);
         categoryTotals[cat] = (categoryTotals[cat] || 0) + mins;
+
+        if (!mostLaunchedApp || (app.launches && app.launches > mostLaunchedApp.launches)) {
+          mostLaunchedApp = { appName: app.appName || app.packageName, launches: app.launches || 0 };
+        }
 
         return {
           packageName: app.packageName,
           appName: app.appName || app.packageName,
           minutes: mins,
           category: cat,
+          launches: app.launches,
+          sessions: app.sessions,
+          nightMinutes: Math.round((app.nightMs || 0) / 60000),
+          yesterdayMinutes: yesterdayMap.get(app.packageName),
         };
       });
 
     const totalMinutes = Math.round(totalForegroundMs / 60000);
+
+    // Day on day calculation
+    const deltaMs = totalForegroundMs - yesterdayTotalMs;
+    const dayOnDayDeltaMinutes = Math.round(deltaMs / 60000);
+    const dayOnDayDeltaPct =
+      yesterdayTotalMinutes > 0
+        ? Math.round((Math.abs(dayOnDayDeltaMinutes) / yesterdayTotalMinutes) * 100)
+        : 0;
+    const dayOnDayDirection: 'up' | 'down' | 'flat' =
+      dayOnDayDeltaMinutes > 5 ? 'up' : dayOnDayDeltaMinutes < -5 ? 'down' : 'flat';
+
+    // 7-day average
+    const weekTotalMs = weekRows.reduce((s, r) => s + r.foregroundMs, 0);
+    const weekAverageMinutes = Math.round(weekTotalMs / 60000 / 7);
+
+    // Top Category
+    let topCat = 'Other';
+    let maxCatMins = 0;
+    for (const [c, m] of Object.entries(categoryTotals)) {
+      if (m > maxCatMins) {
+        maxCatMins = m;
+        topCat = c;
+      }
+    }
+
     if (totalMinutes === 0 && topApps.length === 0) {
-      return FALLBACK_USAGE;
+      return EMPTY_USAGE;
     }
 
     return {
       totalMinutes,
+      yesterdayTotalMinutes,
+      dayOnDayDeltaMinutes,
+      dayOnDayDeltaPct,
+      dayOnDayDirection,
+      weekAverageMinutes: weekAverageMinutes > 0 ? weekAverageMinutes : totalMinutes,
       topApps,
+      yesterdayApps: Array.from(yesterdayMap.entries()).map(([pkg, mins]) => ({
+        packageName: pkg,
+        appName: pkg,
+        minutes: mins,
+      })),
       categories: categoryTotals,
+      topCategory: topCat,
       nightMinutes: Math.round(nightMs / 60000),
+      totalLaunches,
+      mostLaunchedApp,
     };
   } catch (err) {
-    console.warn('[CoachEngine] Could not load usage, using realistic snapshot:', err);
-    return FALLBACK_USAGE;
+    console.warn('[CoachEngine] Could not load usage, using empty snapshot:', err);
+    return EMPTY_USAGE;
   }
 }
 
@@ -133,78 +246,222 @@ export function formatMins(mins: number): string {
 }
 
 /**
- * Generate intelligent AI coach response based on query and device usage
+ * Try generating AI response using Google Gemini Free Tier
+ */
+async function callGeminiApi(
+  query: string,
+  usage: AggregatedUsageSnapshot,
+  apiKey: string
+): Promise<string | null> {
+  try {
+    const totalTimeStr = formatMins(usage.totalMinutes);
+    const yesterdayTimeStr = formatMins(usage.yesterdayTotalMinutes);
+    const appsSummary = usage.topApps
+      .slice(0, 8)
+      .map((a) => `- ${a.appName}: ${formatMins(a.minutes)} (${a.category}, ${a.launches || 0} opens, night: ${a.nightMinutes || 0}m)`)
+      .join('\n');
+
+    const categoriesSummary = Object.entries(usage.categories)
+      .map(([cat, mins]) => `${cat}: ${formatMins(mins)}`)
+      .join(', ');
+
+    const systemPrompt = `You are the digital wellness AI Coach inside the 'Hourly' mobile app.
+You have real-time access to the user's phone usage data:
+- Today's Total Screen Time: ${totalTimeStr}
+- Yesterday's Total Screen Time: ${yesterdayTimeStr}
+- Day-on-Day Change: ${usage.dayOnDayDeltaMinutes > 0 ? `+${usage.dayOnDayDeltaMinutes}m` : `${usage.dayOnDayDeltaMinutes}m`} (${usage.dayOnDayDeltaPct}% ${usage.dayOnDayDirection})
+- 7-Day Average: ${formatMins(usage.weekAverageMinutes)} / day
+- Categories: ${categoriesSummary}
+- Top Apps Today:
+${appsSummary}
+- Night Screen Time (past 9 PM): ${formatMins(usage.nightMinutes)}
+- Total App Opens: ${usage.totalLaunches}
+
+Guidelines:
+1. Be concise (2-4 sentences max), friendly, non-judgmental, and practical.
+2. Directly answer their question using their real phone numbers above.
+3. Suggest 1 actionable micro-habit to help reduce screen time or maintain healthy momentum.`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: `${systemPrompt}\n\nUser Question: ${query}` }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 300,
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn('[Gemini API] Request failed with status:', res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return candidateText ? candidateText.trim() : null;
+  } catch (e) {
+    console.warn('[Gemini API] Error calling Gemini:', e);
+    return null;
+  }
+}
+
+/**
+ * Generate intelligent AI coach response based on query and device usage.
+ * Uses Gemini free tier when available, with rich data-aware local synthesis as fallback.
  */
 export async function generateCoachResponse(
   query: string,
   usageSnapshot?: AggregatedUsageSnapshot
-): Promise<{ text: string; cards: StructuredCoachCard[]; followUpChips: string[] }> {
+): Promise<{ text: string; cards: StructuredCoachCard[]; followUpChips: string[]; modelUsed: 'gemini' | 'claude' | 'local' }> {
   const usage = usageSnapshot || (await getCoachUsageSnapshot());
   const q = query.toLowerCase().trim();
 
   const totalTimeStr = formatMins(usage.totalMinutes);
-  const topApp = usage.topApps[0] || { appName: 'Social Media', minutes: 60, category: 'Social' };
-  const secondApp = usage.topApps[1] || { appName: 'Video Apps', minutes: 40, category: 'Video' };
+  const yesterdayTimeStr = formatMins(usage.yesterdayTotalMinutes);
+  const topApp = usage.topApps[0] || { appName: 'your apps', minutes: usage.totalMinutes, category: 'Other', launches: 0 };
+  const secondApp = usage.topApps[1] || { appName: 'other apps', minutes: 0, category: 'Other', launches: 0 };
 
-  // ── 1. Query: "Where did my time go?" / breakdown ──────────────
-  if (
-    q.includes('where') ||
-    q.includes('time go') ||
-    q.includes('breakdown') ||
-    q.includes('today') ||
-    q.includes('spent')
-  ) {
-    const topAppPct = Math.round((topApp.minutes / Math.max(1, usage.totalMinutes)) * 100);
-
-    return {
-      text: `Today you have logged ${totalTimeStr} of active screen time. ${topApp.appName} took the largest portion (${formatMins(
-        topApp.minutes
-      )}, ~${topAppPct}% of your total), followed by ${secondApp.appName} (${formatMins(secondApp.minutes)}).`,
-      cards: [
+  // 1. Try Gemini API first if key exists
+  const geminiKey = (await getStoredGeminiKey()) || (process.env.EXPO_PUBLIC_GEMINI_API_KEY as string | undefined);
+  if (geminiKey && geminiKey.trim() !== '') {
+    const geminiText = await callGeminiApi(query, usage, geminiKey.trim());
+    if (geminiText) {
+      // Build relevant cards to complement Gemini's text
+      const cards: StructuredCoachCard[] = [
         {
           type: 'breakdown',
-          title: "Today's Time Distribution",
-          subtitle: `Total Screen Time: ${totalTimeStr}`,
-          badge: topAppPct > 40 ? 'Heavy Focus' : 'Balanced',
-          items: usage.topApps.slice(0, 4).map((app) => ({
-            label: app.appName,
-            value: formatMins(app.minutes),
-            percent: Math.min(100, Math.round((app.minutes / Math.max(1, usage.totalMinutes)) * 100)),
+          title: "Today's Top Apps",
+          subtitle: `Total: ${totalTimeStr}`,
+          items: usage.topApps.slice(0, 3).map((a) => ({
+            label: a.appName,
+            value: formatMins(a.minutes),
+            percent: Math.min(100, Math.round((a.minutes / Math.max(1, usage.totalMinutes)) * 100)),
           })),
         },
+      ];
+
+      return {
+        text: geminiText,
+        cards,
+        followUpChips: [
+          'Want to reduce this screen time?',
+          'What is my day on day progress?',
+          `How can I cut 30m from ${topApp.appName}?`,
+        ],
+        modelUsed: 'gemini',
+      };
+    }
+  }
+
+  // 2. Comprehensive Local Data-Aware Synthesis Engine
+
+  // Check if user specifically asked about day-on-day progress / yesterday
+  if (
+    q.includes('day on day') ||
+    q.includes('day-on-day') ||
+    q.includes('yesterday') ||
+    q.includes('progress') ||
+    q.includes('compared') ||
+    q.includes('trend')
+  ) {
+    const deltaText =
+      usage.dayOnDayDirection === 'down'
+        ? `${formatMins(Math.abs(usage.dayOnDayDeltaMinutes))} LESS screen time than yesterday (-${usage.dayOnDayDeltaPct}%)`
+        : usage.dayOnDayDirection === 'up'
+        ? `${formatMins(usage.dayOnDayDeltaMinutes)} MORE screen time than yesterday (+${usage.dayOnDayDeltaPct}%)`
+        : `virtually identical to yesterday (~${totalTimeStr})`;
+
+    const headline =
+      usage.dayOnDayDirection === 'down'
+        ? `Great momentum! Today you've logged ${deltaText}. You are trending toward an intentional, screen-balanced day.`
+        : usage.dayOnDayDirection === 'up'
+        ? `Your screen time is up by ${deltaText}. ${topApp.appName} accounts for most of today's increase (${formatMins(topApp.minutes)}).`
+        : `Your day-on-day pace is steady: today (${totalTimeStr}) is on par with yesterday (${yesterdayTimeStr}).`;
+
+    return {
+      text: headline,
+      cards: [
         {
           type: 'insight',
-          title: 'Prime Opportunity Window',
-          subtitle:
-            usage.nightMinutes > 30
-              ? `You had ${formatMins(usage.nightMinutes)} in evening use past 9 PM. Shifting 20m of this to winding down can give you back deeper sleep.`
-              : `Your usage is nicely spaced across daylight hours, with low late-night eye strain.`,
-          badge: 'Coach Insight',
+          title: 'Day-on-Day Progress',
+          subtitle: `Today: ${totalTimeStr} vs Yesterday: ${yesterdayTimeStr}`,
+          badge: usage.dayOnDayDirection === 'down' ? 'Trending Down' : 'Pace Alert',
+          items: [
+            { label: 'Today Total', value: totalTimeStr },
+            { label: 'Yesterday Total', value: yesterdayTimeStr },
+            {
+              label: 'Difference',
+              value: `${usage.dayOnDayDirection === 'down' ? '-' : '+'}${formatMins(Math.abs(usage.dayOnDayDeltaMinutes))} (${usage.dayOnDayDeltaPct}%)`,
+            },
+          ],
+        },
+        {
+          type: 'goalAction',
+          title: 'Set Day-on-Day Goal',
+          subtitle: `Aim to keep tomorrow's total below ${formatMins(Math.max(60, usage.totalMinutes - 20))}.`,
+          goalAction: {
+            appName: 'Daily Target',
+            dailyLimitMinutes: Math.max(60, usage.totalMinutes - 20),
+          },
         },
       ],
       followUpChips: [
-        `How can I cut 30m from ${topApp.appName}?`,
-        'Suggest healthy swaps for scrolling',
-        'Build a gradual reduction plan',
+        'How can I cut 30m of screen time today?',
+        'Which app had the biggest increase?',
+        'Suggest swaps for scrolling',
       ],
+      modelUsed: 'local',
     };
   }
 
-  // ── 2. Query: "How can I cut..." / "Improve" / "Reduction plan" ──
+  // Check if user specifically asked about reducing screen time / saving time
   if (
-    q.includes('cut') ||
     q.includes('reduce') ||
-    q.includes('improve') ||
-    q.includes('plan') ||
+    q.includes('cut') ||
+    q.includes('save') ||
+    q.includes('limit') ||
     q.includes('less') ||
-    q.includes('stop')
+    q.includes('stop') ||
+    q.includes('plan')
   ) {
+    if (usage.totalMinutes === 0 || !usage.topApps[0] || usage.topApps[0].minutes === 0) {
+      return {
+        text: "You haven't logged any heavy screen time yet today! As you use your device, I'll detect your highest-focus apps and build gentle 15-minute reduction plans.",
+        cards: [
+          {
+            type: 'insight',
+            title: 'Digital Wellness Tip',
+            subtitle: 'Start with awareness: pause for a breath before opening high-dopamine apps.',
+            badge: 'Habit Anchor',
+          },
+        ],
+        followUpChips: [
+          'What is my day on day progress?',
+          'Suggest alternatives to scrolling',
+          'Where did my time go today?',
+        ],
+        modelUsed: 'local',
+      };
+    }
+
     const currentMins = topApp.minutes > 0 ? topApp.minutes : 75;
-    const targetMins = Math.max(25, Math.round(currentMins * 0.6));
-    const savedMinsPerWeek = Math.round(((currentMins - targetMins) * 7) / 60);
+    const targetMins = Math.max(20, Math.round(currentMins * 0.65));
+    const weeklyReclaimed = Math.round(((currentMins - targetMins) * 7) / 60);
 
     return {
-      text: `The most sustainable way to regain time is gradual habit tuning rather than cold-turkey blocking. By trimming just 15–20 minutes daily from ${topApp.appName}, you will reclaim about ${savedMinsPerWeek} hours every single week!`,
+      text: `Want to reduce this screen time? The highest leverage opportunity is ${topApp.appName}, which took ${formatMins(
+        currentMins
+      )} today (~${Math.round((currentMins / Math.max(1, usage.totalMinutes)) * 100)}% of your screen time). Trimming just 15–20 minutes daily from ${topApp.appName} reclaims ~${weeklyReclaimed} hours every single week!`,
       cards: [
         {
           type: 'reductionPlan',
@@ -241,121 +498,146 @@ export async function generateCoachResponse(
         },
       ],
       followUpChips: [
+        'What is my day on day progress?',
         'Suggest swaps when I get the urge to scroll',
         'Where does my evening time go?',
-        'How do I build friction against opening apps?',
       ],
+      modelUsed: 'local',
     };
   }
 
-  // ── 3. Query: Swaps / Alternatives / Boring ──────────────────────
-  if (
-    q.includes('swap') ||
-    q.includes('alternative') ||
-    q.includes('bored') ||
-    q.includes('urge') ||
-    q.includes('instead')
-  ) {
-    return {
-      text: `When we open ${topApp.appName}, our brain is usually seeking low-friction stimulation or stress relief. Replacing high-dopamine short-form feeds with intentional audio or quick learning keeps your mind engaged without the endless scroll trap.`,
-      cards: [
-        {
-          type: 'swap',
-          title: 'High-Value Swap Suggestions',
-          subtitle: `Better alternatives to mindless ${topApp.appName} loops`,
-          badge: 'Smart Swaps',
-          swapSuggestion: {
-            fromApp: topApp.appName,
-            toActivity: 'Audiobooks / Deep Podcasts (e.g. Spotify, Pocket Casts)',
-            benefit: 'Hands-free, zero blue-light eye strain, and high mental retention.',
-            durationMinutes: 20,
-          },
-        },
-        {
-          type: 'swap',
-          title: 'Micro-Learning Swap',
-          subtitle: 'Replace 10m micro-scrolls',
-          badge: 'Quick Win',
-          swapSuggestion: {
-            fromApp: 'Shorts & Reels',
-            toActivity: 'Kindle App or Duolingo Lesson',
-            benefit: 'Gives the brain an intentional win in under 7 minutes.',
-            durationMinutes: 10,
-          },
-        },
-      ],
-      followUpChips: [
-        'How do I avoid late-night phone habits?',
-        'Show my complete daily breakdown',
-        'Give me a 15-minute daily focus routine',
-      ],
-    };
-  }
+  // Check if user asked about a specific app on their phone
+  const matchedApp = usage.topApps.find(
+    (a) => q.includes(a.appName.toLowerCase()) || q.includes(a.packageName.toLowerCase())
+  );
+  if (matchedApp) {
+    const appPct = Math.round((matchedApp.minutes / Math.max(1, usage.totalMinutes)) * 100);
+    const yesterdayMins = matchedApp.yesterdayMinutes;
+    const yDelta = typeof yesterdayMins === 'number' ? matchedApp.minutes - yesterdayMins : null;
 
-  // ── 4. Query: Late night / sleep / evening ────────────────────────
-  if (
-    q.includes('night') ||
-    q.includes('sleep') ||
-    q.includes('bed') ||
-    q.includes('evening') ||
-    q.includes('doomscroll')
-  ) {
+    let deltaSentence = '';
+    if (yDelta !== null) {
+      deltaSentence = yDelta > 0
+        ? ` That's ${formatMins(yDelta)} more than yesterday.`
+        : yDelta < 0
+        ? ` That's ${formatMins(Math.abs(yDelta))} less than yesterday.`
+        : ' Same as yesterday.';
+    }
+
     return {
-      text: `Evening screen time has the biggest impact on sleep recovery and morning focus. Blue light and fast thumbnail transitions trick your circadian rhythm into staying alert. Here is a wind-down protocol calibrated for your habits:`,
+      text: `You have spent ${formatMins(matchedApp.minutes)} on ${matchedApp.appName} today (${appPct}% of your total screen time).${deltaSentence}${
+        matchedApp.launches ? ` You opened it ${matchedApp.launches} times.` : ''
+      }`,
       cards: [
         {
           type: 'insight',
-          title: '3-Step Evening Wind-Down Routine',
-          subtitle: 'Break the 10:30 PM scroll loop',
-          badge: 'Sleep Recovery',
+          title: `${matchedApp.appName} Activity Snapshot`,
+          subtitle: `Category: ${matchedApp.category}`,
           items: [
-            { label: '9:30 PM', value: 'Switch phone display to Grayscale (Bedtime Mode)' },
-            { label: '10:00 PM', value: `Cap ${topApp.appName} and move phone 6 feet from bed` },
-            { label: '10:15 PM', value: 'Switch to calming ambient sounds or light fiction reading' },
+            { label: 'Time Today', value: formatMins(matchedApp.minutes) },
+            { label: 'Share of Screen Time', value: `${appPct}%` },
+            ...(matchedApp.launches ? [{ label: 'App Opens', value: `${matchedApp.launches} times` }] : []),
+            ...(matchedApp.nightMinutes ? [{ label: 'Night Usage', value: `${formatMins(matchedApp.nightMinutes)}` }] : []),
           ],
         },
         {
           type: 'goalAction',
-          title: 'Add Wind-Down Goal',
-          subtitle: 'Protect your evenings with a 30m bedtime screen cap.',
+          title: `Limit ${matchedApp.appName}`,
+          subtitle: `Recommended: ${formatMins(Math.max(15, Math.round(matchedApp.minutes * 0.75)))} daily cap`,
           goalAction: {
-            appName: 'Evening Screen Time',
-            dailyLimitMinutes: 30,
+            packageName: matchedApp.packageName,
+            appName: matchedApp.appName,
+            dailyLimitMinutes: Math.max(15, Math.round(matchedApp.minutes * 0.75)),
           },
         },
       ],
       followUpChips: [
-        'Where did most of my time go today?',
-        'Suggest relaxing podcasts for sleep',
-        'Build a gradual reduction plan',
+        `How can I reduce ${matchedApp.appName} screen time?`,
+        'What is my day on day progress?',
+        'Where did the rest of my time go?',
       ],
+      modelUsed: 'local',
     };
   }
 
-  // ── 5. General / Open Questions (ChatGPT-style free coach) ────────
+  // Query: Where did time go / breakdown
+  if (
+    q.includes('where') ||
+    q.includes('time go') ||
+    q.includes('breakdown') ||
+    q.includes('today') ||
+    q.includes('spent')
+  ) {
+    const topAppPct = Math.round((topApp.minutes / Math.max(1, usage.totalMinutes)) * 100);
+
+    return {
+      text: `Today you have logged ${totalTimeStr} of active screen time across ${usage.topApps.length} apps. ${topApp.appName} took the largest portion (${formatMins(
+        topApp.minutes
+      )}, ~${topAppPct}% of your total), followed by ${secondApp.appName} (${formatMins(secondApp.minutes)}).`,
+      cards: [
+        {
+          type: 'breakdown',
+          title: "Today's Time Distribution",
+          subtitle: `Total Screen Time: ${totalTimeStr}`,
+          badge: topAppPct > 40 ? 'Heavy Focus' : 'Balanced',
+          items: usage.topApps.slice(0, 4).map((app) => ({
+            label: app.appName,
+            value: formatMins(app.minutes),
+            percent: Math.min(100, Math.round((app.minutes / Math.max(1, usage.totalMinutes)) * 100)),
+          })),
+        },
+        {
+          type: 'insight',
+          title: 'Prime Opportunity Window',
+          subtitle:
+            usage.nightMinutes > 30
+              ? `You had ${formatMins(usage.nightMinutes)} in evening use past 9 PM. Shifting 20m of this to winding down can give you back deeper sleep.`
+              : `Your usage is nicely spaced across daylight hours, with low late-night eye strain.`,
+          badge: 'Coach Insight',
+        },
+      ],
+      followUpChips: [
+        'Want to reduce this screen time?',
+        'What is my day on day progress?',
+        `How can I cut 30m from ${topApp.appName}?`,
+      ],
+      modelUsed: 'local',
+    };
+  }
+
+  // Default intelligent assistant response
   return {
-    text: `Great question! Looking at your patterns today (${totalTimeStr} logged across ${usage.topApps.length} active apps), the key to sustainable digital wellness is building intentional moments rather than strict deprivation. Small changes like setting friction before opening ${topApp.appName} or scheduling screen-free lunch breaks compound quickly over a month.`,
+    text: `Looking at your phone activities today (${totalTimeStr} total across ${usage.topApps.length} apps): your highest category is ${usage.topCategory} (${formatMins(
+      usage.categories[usage.topCategory] || topApp.minutes
+    )}), led by ${topApp.appName}. Compared to yesterday (${yesterdayTimeStr}), you are ${
+      usage.dayOnDayDirection === 'down'
+        ? `down by ${formatMins(Math.abs(usage.dayOnDayDeltaMinutes))} (-${usage.dayOnDayDeltaPct}%)`
+        : usage.dayOnDayDirection === 'up'
+        ? `up by ${formatMins(usage.dayOnDayDeltaMinutes)} (+${usage.dayOnDayDeltaPct}%)`
+        : `holding steady`
+    }. What would you like to explore next?`,
     cards: [
       {
-        type: 'insight',
-        title: 'Coach Recommendation',
-        subtitle: `You spend about ${formatMins(topApp.minutes)} on ${topApp.appName}. Pausing for a 3-second breath before opening it reduces impulsive opens by up to 35%.`,
-        badge: 'Habit Anchor',
-      },
-      {
         type: 'breakdown',
-        title: 'Quick Snapshot',
-        subtitle: `Total: ${totalTimeStr}`,
+        title: 'Quick Activity Snapshot',
+        subtitle: `Total Screen Time: ${totalTimeStr}`,
         items: usage.topApps.slice(0, 3).map((a) => ({
           label: a.appName,
           value: formatMins(a.minutes),
         })),
       },
+      {
+        type: 'insight',
+        title: 'Day-on-Day Summary',
+        subtitle: `Pace: ${usage.dayOnDayDirection === 'down' ? 'Recovering time' : 'Higher usage than yesterday'}`,
+        badge: 'Habit Anchor',
+      },
     ],
     followUpChips: [
-      'Where did my time go today?',
-      `How can I cut 30m of ${topApp.appName}?`,
-      'Suggest alternatives to scrolling',
+      'Want to reduce this screen time?',
+      'What is my day on day progress?',
+      `Suggest swaps for ${topApp.appName}`,
     ],
+    modelUsed: 'local',
   };
 }

@@ -6,7 +6,7 @@
  * Features: animated bar entrance, scrub-to-inspect with haptics, gradient fill.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -71,7 +71,7 @@ export const BarChart: React.FC<BarChartProps> = ({
 
   const [containerWidth, setContainerWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const lastHapticIndex = useSharedValue(-1);
+  const lastHapticIndex = useRef(-1);
 
   const maxValue = Math.max(...data.map((d) => d.value), 1);
   const color = barColor || theme.accent.violet;
@@ -112,31 +112,32 @@ export const BarChart: React.FC<BarChartProps> = ({
   }, [onScrubEnd]);
 
   const panGesture = Gesture.Pan()
+    .runOnJS(true)
     .onStart((e) => {
       if (barWidth <= 0) return;
       const idx = Math.floor(e.x / (barWidth + spacing.xs));
       const clamped = Math.max(0, Math.min(data.length - 1, idx));
-      lastHapticIndex.value = clamped;
+      lastHapticIndex.current = clamped;
       triggerHaptic.selection();
-      runOnJS(handleScrubUpdate)(clamped);
+      handleScrubUpdate(clamped);
     })
     .onUpdate((e) => {
       if (barWidth <= 0) return;
       const idx = Math.floor(e.x / (barWidth + spacing.xs));
       const clamped = Math.max(0, Math.min(data.length - 1, idx));
-      if (clamped !== lastHapticIndex.value) {
-        lastHapticIndex.value = clamped;
+      if (clamped !== lastHapticIndex.current) {
+        lastHapticIndex.current = clamped;
         triggerHaptic.light();
-        runOnJS(handleScrubUpdate)(clamped);
+        handleScrubUpdate(clamped);
       }
     })
     .onEnd(() => {
-      lastHapticIndex.value = -1;
-      runOnJS(handleScrubEndJS)();
+      lastHapticIndex.current = -1;
+      handleScrubEndJS();
     })
     .onFinalize(() => {
-      lastHapticIndex.value = -1;
-      runOnJS(handleScrubEndJS)();
+      lastHapticIndex.current = -1;
+      handleScrubEndJS();
     });
 
   return (
