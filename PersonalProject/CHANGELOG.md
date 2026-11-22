@@ -1,6 +1,38 @@
 # Changelog
 
-## Phase 6: AI Coach Screen, Quota System & Rewarded Ads
+## Visual Redesign: Glassmorphism, Auth with Guest Mode, Glowing Line Charts & Category Bars
+**What was done:**
+- Replaced font stack with **Inter** (`@expo-google-fonts/inter`) across the design system for a crisp, minimal typography hierarchy with tabular numerals.
+- Implemented iOS-inspired frosted glassmorphism across UI primitives (`Card`, `GlowCard`, `TabBar`) with subtle borders, translucent surfaces, and `expo-blur` on hero surfaces.
+- Built **Auth Screen Redesign** (`apps/mobile/src/features/auth/SignInScreen.tsx`):
+  - 3 clean entry paths: **Continue as Guest** (no account required, local-only storage), **Social Login** (Google, GitHub), and **Email Sign In / Sign Up**.
+  - Integrated persistent guest mode flags in `lib/auth.ts` and gated launch in `app/index.tsx`.
+- Redesigned **Today's Activity Chart** into `ActivityLineChart` (`src/components/charts/ActivityLineChart.tsx`):
+  - Monotone cubic bezier smooth curve with animated draw-in stroke.
+  - Multi-stop gradient glowing area fill underneath.
+  - Interactive pan scrubbing with haptic feedback ticks and glowing point indicator.
+- Redesigned **Top Apps & App Icon** (`src/components/ui/AppIcon.tsx`):
+  - Added native installed app icon lazy-loading cache via `getInstalledApps()`.
+  - Added branded vector logos with authentic gradients/glyphs for Instagram, YouTube, WhatsApp, Chrome, Spotify.
+  - Redesigned app rows with glass backgrounds, glowing rank pill badges, and clean spacing.
+- Redesigned **Stats Dashboard** (`app/(tabs)/stats.tsx`):
+  - Integrated `ActivityLineChart` for Day, Week, and Month views.
+  - Replaced circular donut with modern horizontal `CategoryBars` (`src/components/charts/CategoryBars.tsx`) featuring category icons, percentages, and Reanimated progress bars.
+- Verified TypeScript compilation (`npx tsc --noEmit`) with 0 errors across all workspaces.
+
+**What the human should manually test:**
+1. **Onboarding & Auth Flow:**
+   - Tap "Continue as Guest" to immediately access all features without credentials.
+   - Alternatively, test Google / GitHub social login or switch to the email form.
+2. **Home Screen (`(tabs)/index`):**
+   - Inspect the frosted glass Hero Card and floating neon pill TabBar.
+   - Look at the new smooth **Activity Line Graph** with the glowing purple/cyan area fill. Drag your finger across it to inspect the glowing dot and feel the haptic ticks.
+   - Inspect the **Top Apps** list: observe real app logos (e.g. Instagram gradient camera, YouTube red play glyph) and glass card styling.
+3. **Stats Screen (`(tabs)/stats`):**
+   - Toggle between Day, Week, and Month tabs.
+   - Check the glowing area line graph adjusting across time ranges.
+   - Check the new **Categories** horizontal progress bars with animated fill and distinct category icons.
+
 **What was done:**
 - Built full **AI Coach Screen** (`app/(tabs)/coach.tsx`) replacing placeholder with conversational screen time coach.
 - Integrated real device usage metrics from `UsageRepository` so coach responses directly analyze today's foreground minutes, top apps, night-time usage, and category distribution.

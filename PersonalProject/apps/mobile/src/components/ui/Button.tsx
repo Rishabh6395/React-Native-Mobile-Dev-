@@ -96,11 +96,10 @@ export const Button: React.FC<ButtonProps> = ({
             {
               color: textColor,
               fontSize: sizeStyles.fontSize,
-              fontFamily: typography.fonts.uiSemiBold,
+              fontWeight: '600',
             },
             textStyle,
           ]}
-          textBreakStrategy="simple"
           numberOfLines={1}
         >
           {title}
@@ -234,15 +233,16 @@ const styles = StyleSheet.create({
   inner: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   text: {
     includeFontPadding: false,
     textAlign: 'center',
-    paddingHorizontal: spacing.sm,
   },
 });

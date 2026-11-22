@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../../theme/ThemeContext';
-import { layout, spacing } from '../../theme/tokens';
+import { layout, spacing, glassShadow } from '../../theme/tokens';
 
 export interface GlowCardProps {
   children: React.ReactNode;
@@ -10,6 +11,8 @@ export interface GlowCardProps {
   glowColor?: string;
   glowOpacity?: number;
   variant?: 'base' | 'elevated' | 'highlight';
+  /** Use real blur (expensive — limit to 1-2 per screen) */
+  glassBlur?: boolean;
   padding?: keyof typeof spacing | number;
 }
 
@@ -17,8 +20,9 @@ export const GlowCard: React.FC<GlowCardProps> = ({
   children,
   style,
   glowColor,
-  glowOpacity = 0.18,
+  glowOpacity = 0.22,
   variant = 'elevated',
+  glassBlur = false,
   padding = 'base',
 }) => {
   const { theme, isDark } = useTheme();
@@ -26,39 +30,57 @@ export const GlowCard: React.FC<GlowCardProps> = ({
   const activeGlowColor = glowColor || theme.accent.violet;
 
   return (
-    <View style={[styles.outerContainer, style]}>
-      {/* Outer subtle glow/shadow aura */}
+    <View style={[styles.outerContainer, glassShadow, style]}>
+      {/* Outer glow aura */}
       <View
         style={[
           styles.glowAura,
           {
             backgroundColor: activeGlowColor,
-            opacity: isDark ? glowOpacity : glowOpacity * 0.5,
+            opacity: isDark ? glowOpacity : glowOpacity * 0.4,
           },
         ]}
       />
-      {/* Glowing border gradient container */}
+      {/* Glowing border gradient */}
       <LinearGradient
         colors={[
           activeGlowColor,
           theme.accent.aqua,
-          'rgba(255, 255, 255, 0.05)',
+          'rgba(255, 255, 255, 0.06)',
         ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.borderGradient}
       >
-        <View
-          style={[
-            styles.innerCard,
-            {
-              backgroundColor: theme.card[variant],
-              padding: paddingVal,
-            },
-          ]}
-        >
-          {children}
-        </View>
+        {glassBlur && Platform.OS !== 'web' ? (
+          <View style={styles.innerCard}>
+            <BlurView
+              intensity={isDark ? 35 : 55}
+              tint={isDark ? 'dark' : 'light'}
+              style={StyleSheet.absoluteFill}
+            />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: theme.card[variant] },
+              ]}
+              pointerEvents="none"
+            />
+            <View style={{ padding: paddingVal }}>{children}</View>
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.innerCard,
+              {
+                backgroundColor: theme.card[variant],
+                padding: paddingVal,
+              },
+            ]}
+          >
+            {children}
+          </View>
+        )}
       </LinearGradient>
     </View>
   );
@@ -70,16 +92,16 @@ const styles = StyleSheet.create({
   },
   glowAura: {
     position: 'absolute',
-    top: 4,
-    left: 4,
-    right: 4,
-    bottom: 4,
+    top: 2,
+    left: 2,
+    right: 2,
+    bottom: 2,
     borderRadius: layout.borderRadius.card + 4,
-    transform: [{ scale: 1.02 }],
+    transform: [{ scale: 1.03 }],
   },
   borderGradient: {
     borderRadius: layout.borderRadius.card,
-    padding: 1, // 1px glowing border
+    padding: 1,
     overflow: 'hidden',
   },
   innerCard: {

@@ -11,31 +11,36 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { Mail, Lock, User as UserIcon, ArrowRight, AlertCircle, Sparkles } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Mail,
+  Lock,
+  User as UserIcon,
+  ArrowRight,
+  AlertCircle,
+  Clock,
+  UserCircle,
+  ChevronRight,
+} from 'lucide-react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Button, Card, SegmentedControl } from '../../components/ui';
-import { spacing, typography, layout } from '../../theme/tokens';
-import { signInWithEmail, signUpWithEmail, signInWithSocial, SocialProvider } from '../../lib/auth';
+import { Button, Card, GlowCard } from '../../components/ui';
+import { spacing, typography, layout, glassShadow } from '../../theme/tokens';
+import {
+  signInWithEmail,
+  signUpWithEmail,
+  signInWithSocial,
+  setGuestMode,
+  SocialProvider,
+} from '../../lib/auth';
 
-// Official SVG Brand Logos
+// ─── SVG Brand Logos ─────────────────────────────────────────
+
 const GoogleIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Path
-      fill="#4285F4"
-      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-    />
-    <Path
-      fill="#34A853"
-      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-    />
-    <Path
-      fill="#FBBC05"
-      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.97 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-    />
-    <Path
-      fill="#EA4335"
-      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-    />
+    <Path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z" />
+    <Path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z" />
+    <Path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.97 0 12s.45 3.82 1.25 5.42l4.03-3.15z" />
+    <Path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
   </Svg>
 );
 
@@ -61,6 +66,13 @@ export const SignInScreen: React.FC<{ onComplete: () => void }> = ({ onComplete 
   const [socialLoading, setSocialLoading] = useState<SocialProvider | null>(null);
   const [error, setError] = useState('');
 
+  const handleGuest = async () => {
+    try {
+      await setGuestMode(true);
+    } catch {}
+    onComplete();
+  };
+
   const validate = (): boolean => {
     if (!email.trim() || !email.includes('@')) {
       setError('Please enter a valid email address');
@@ -79,10 +91,8 @@ export const SignInScreen: React.FC<{ onComplete: () => void }> = ({ onComplete 
 
   const handleEmailAuth = async () => {
     if (!validate()) return;
-
     setLoading(true);
     setError('');
-
     try {
       if (mode === 'signup') {
         await signUpWithEmail(email, password, name);
@@ -91,7 +101,7 @@ export const SignInScreen: React.FC<{ onComplete: () => void }> = ({ onComplete 
       }
       onComplete();
     } catch (err: any) {
-      setError(err.message || (mode === 'signup' ? 'Failed to create account' : 'Failed to sign in'));
+      setError(err.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }
@@ -100,9 +110,9 @@ export const SignInScreen: React.FC<{ onComplete: () => void }> = ({ onComplete 
   const handleSocialAuth = async (provider: SocialProvider) => {
     setSocialLoading(provider);
     setError('');
-
     try {
       await signInWithSocial(provider);
+      onComplete();
     } catch (err: any) {
       setError(err.message || `Failed to sign in with ${provider}`);
     } finally {
@@ -122,361 +132,476 @@ export const SignInScreen: React.FC<{ onComplete: () => void }> = ({ onComplete 
       >
         {/* Header Branding */}
         <View style={styles.header}>
-          <View style={[styles.iconWrapper, { backgroundColor: theme.card.highlight }]}>
-            <Sparkles size={28} color={theme.accent.violet} />
+          <View style={[styles.heroIconOuter, glassShadow]}>
+            <LinearGradient
+              colors={theme.accent.gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroIconGradient}
+            >
+              <Clock size={28} color="#FFFFFF" strokeWidth={2.5} />
+            </LinearGradient>
           </View>
-          <Text style={[styles.title, { color: theme.text.primary, fontFamily: typography.fonts.uiSemiBold }]}>
-            {mode === 'signin' ? 'Sign in to Hourly' : 'Create an Account'}
+          <Text style={[styles.title, { color: theme.text.primary }]}>
+            Welcome to Hourly
           </Text>
-          <Text style={[styles.subtitle, { color: theme.text.secondary, fontFamily: typography.fonts.uiRegular }]}>
-            {mode === 'signin'
-              ? 'Sync your screen time securely across your devices.'
-              : 'Join Hourly to take back your focus and screen time.'}
+          <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
+            Your screen time, explained · Take back your focus
           </Text>
         </View>
 
-        {/* Auth Mode Toggle */}
-        <View style={styles.tabContainer}>
-          <SegmentedControl
-            options={[
-              { value: 'signin', label: 'Sign In' },
-              { value: 'signup', label: 'Create Account' },
-            ]}
-            value={mode}
-            onChange={(val) => {
-              setMode(val);
-              setError('');
-            }}
-          />
-        </View>
-
-        {/* Main Card */}
-        <Card padding="lg" style={styles.card}>
-          {/* Social Auth Providers */}
-          <Text style={[styles.socialHeading, { color: theme.text.tertiary, fontFamily: typography.fonts.uiMedium }]}>
-            {mode === 'signin' ? 'QUICK SIGN IN' : 'QUICK SIGN UP'}
-          </Text>
-
-          <View style={styles.socialRow}>
-            {/* Google Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.socialButton,
-                {
-                  backgroundColor: isDark ? theme.card.highlight : theme.card.elevated,
-                  borderColor: theme.border.subtle,
-                  opacity: pressed || socialLoading ? 0.75 : 1,
-                },
-              ]}
-              onPress={() => handleSocialAuth('google')}
-              disabled={socialLoading !== null || loading}
-            >
-              {socialLoading === 'google' ? (
-                <ActivityIndicator size="small" color={theme.text.primary} />
-              ) : (
-                <>
-                  <GoogleIcon size={18} />
-                  <Text style={[styles.socialButtonText, { color: theme.text.primary, fontFamily: typography.fonts.uiMedium }]}>
-                    Google
-                  </Text>
-                </>
-              )}
-            </Pressable>
-
-            {/* GitHub Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.socialButton,
-                {
-                  backgroundColor: isDark ? theme.card.highlight : theme.card.elevated,
-                  borderColor: theme.border.subtle,
-                  opacity: pressed || socialLoading ? 0.75 : 1,
-                },
-              ]}
-              onPress={() => handleSocialAuth('github')}
-              disabled={socialLoading !== null || loading}
-            >
-              {socialLoading === 'github' ? (
-                <ActivityIndicator size="small" color={theme.text.primary} />
-              ) : (
-                <>
-                  <GithubIcon size={18} color={theme.text.primary} />
-                  <Text style={[styles.socialButtonText, { color: theme.text.primary, fontFamily: typography.fonts.uiMedium }]}>
-                    GitHub
-                  </Text>
-                </>
-              )}
-            </Pressable>
-
-            {/* Facebook Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.socialButton,
-                {
-                  backgroundColor: isDark ? theme.card.highlight : theme.card.elevated,
-                  borderColor: theme.border.subtle,
-                  opacity: pressed || socialLoading ? 0.75 : 1,
-                },
-              ]}
-              onPress={() => handleSocialAuth('facebook')}
-              disabled={socialLoading !== null || loading}
-            >
-              {socialLoading === 'facebook' ? (
-                <ActivityIndicator size="small" color={theme.text.primary} />
-              ) : (
-                <>
-                  <FacebookIcon size={18} />
-                  <Text style={[styles.socialButtonText, { color: theme.text.primary, fontFamily: typography.fonts.uiMedium }]}>
-                    Facebook
-                  </Text>
-                </>
-              )}
-            </Pressable>
+        {/* 1. Quick Guest Access (Prominent) */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.guestCard,
+            {
+              backgroundColor: theme.card.base,
+              borderColor: theme.border.glass,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+          onPress={handleGuest}
+        >
+          <View style={[styles.guestIconCircle, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
+            <UserCircle size={24} color={theme.accent.violet} />
           </View>
-
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={[styles.dividerLine, { backgroundColor: theme.border.subtle }]} />
-            <Text style={[styles.dividerText, { color: theme.text.tertiary, fontFamily: typography.fonts.uiRegular }]}>
-              or with email
+          <View style={styles.guestTextCol}>
+            <Text style={[styles.guestTitle, { color: theme.text.primary }]}>
+              Continue as Guest
             </Text>
-            <View style={[styles.dividerLine, { backgroundColor: theme.border.subtle }]} />
+            <Text style={[styles.guestDesc, { color: theme.text.tertiary }]}>
+              No account needed · Instant local access
+            </Text>
+          </View>
+          <ChevronRight size={18} color={theme.text.muted} />
+        </Pressable>
+
+        {/* 2. Social Login Section */}
+        <View style={styles.sectionDivider}>
+          <View style={[styles.dividerLine, { backgroundColor: theme.border.glass }]} />
+          <Text style={[styles.dividerLabel, { color: theme.text.tertiary }]}>
+            OR CONTINUE WITH
+          </Text>
+          <View style={[styles.dividerLine, { backgroundColor: theme.border.glass }]} />
+        </View>
+
+        <View style={styles.socialRow}>
+          {/* Google */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.socialButton,
+              {
+                backgroundColor: theme.card.base,
+                borderColor: theme.border.glass,
+                opacity: pressed || socialLoading ? 0.75 : 1,
+              },
+            ]}
+            onPress={() => handleSocialAuth('google')}
+            disabled={socialLoading !== null || loading}
+          >
+            {socialLoading === 'google' ? (
+              <ActivityIndicator size="small" color="#4285F4" />
+            ) : (
+              <>
+                <GoogleIcon size={18} />
+                <Text style={[styles.socialText, { color: theme.text.primary }]}>
+                  Google
+                </Text>
+              </>
+            )}
+          </Pressable>
+
+          {/* GitHub */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.socialButton,
+              {
+                backgroundColor: theme.card.base,
+                borderColor: theme.border.glass,
+                opacity: pressed || socialLoading ? 0.75 : 1,
+              },
+            ]}
+            onPress={() => handleSocialAuth('github')}
+            disabled={socialLoading !== null || loading}
+          >
+            {socialLoading === 'github' ? (
+              <ActivityIndicator size="small" color={theme.text.primary} />
+            ) : (
+              <>
+                <GithubIcon size={18} color={theme.text.primary} />
+                <Text style={[styles.socialText, { color: theme.text.primary }]}>
+                  GitHub
+                </Text>
+              </>
+            )}
+          </Pressable>
+
+          {/* Facebook */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.socialButton,
+              {
+                backgroundColor: theme.card.base,
+                borderColor: theme.border.glass,
+                opacity: pressed || socialLoading ? 0.75 : 1,
+              },
+            ]}
+            onPress={() => handleSocialAuth('facebook')}
+            disabled={socialLoading !== null || loading}
+          >
+            {socialLoading === 'facebook' ? (
+              <ActivityIndicator size="small" color="#1877F2" />
+            ) : (
+              <>
+                <FacebookIcon size={18} />
+                <Text style={[styles.socialText, { color: theme.text.primary }]}>
+                  Facebook
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+
+        {/* 3. Email & Password Form Section */}
+        <View style={styles.sectionDivider}>
+          <View style={[styles.dividerLine, { backgroundColor: theme.border.glass }]} />
+          <Text style={[styles.dividerLabel, { color: theme.text.tertiary }]}>
+            OR WITH EMAIL & PASSWORD
+          </Text>
+          <View style={[styles.dividerLine, { backgroundColor: theme.border.glass }]} />
+        </View>
+
+        <Card padding="base" style={styles.formCard}>
+          {/* Mode Switcher Tabs */}
+          <View style={styles.modeToggleRow}>
+            <Pressable
+              style={[
+                styles.modeTab,
+                mode === 'signin' && {
+                  backgroundColor: theme.card.highlight,
+                  borderColor: theme.border.active,
+                },
+              ]}
+              onPress={() => {
+                setMode('signin');
+                setError('');
+              }}
+            >
+              <Text
+                style={[
+                  styles.modeTabText,
+                  {
+                    color: mode === 'signin' ? theme.text.primary : theme.text.tertiary,
+                    fontWeight: mode === 'signin' ? '600' : '400',
+                  },
+                ]}
+              >
+                Sign In
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.modeTab,
+                mode === 'signup' && {
+                  backgroundColor: theme.card.highlight,
+                  borderColor: theme.border.active,
+                },
+              ]}
+              onPress={() => {
+                setMode('signup');
+                setError('');
+              }}
+            >
+              <Text
+                style={[
+                  styles.modeTabText,
+                  {
+                    color: mode === 'signup' ? theme.text.primary : theme.text.tertiary,
+                    fontWeight: mode === 'signup' ? '600' : '400',
+                  },
+                ]}
+              >
+                Create Account
+              </Text>
+            </Pressable>
           </View>
 
           {/* Name Field (Sign Up only) */}
           {mode === 'signup' && (
             <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <UserIcon size={13} color={theme.text.tertiary} />
-                <Text style={[styles.label, { color: theme.text.tertiary, fontFamily: typography.fonts.uiMedium }]}>
-                  YOUR NAME
-                </Text>
-              </View>
-              <TextInput
+              <Text style={[styles.inputLabel, { color: theme.text.tertiary }]}>
+                YOUR NAME
+              </Text>
+              <View
                 style={[
-                  styles.input,
+                  styles.inputBox,
                   {
-                    color: theme.text.primary,
-                    backgroundColor: isDark ? theme.card.highlight : theme.card.elevated,
-                    borderColor: theme.border.subtle,
-                    fontFamily: typography.fonts.uiRegular,
+                    backgroundColor: theme.card.highlight,
+                    borderColor: theme.border.glass,
                   },
                 ]}
-                placeholder="Rishabh Bhatt"
-                placeholderTextColor={theme.text.muted}
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-              />
+              >
+                <UserIcon size={16} color={theme.text.muted} />
+                <TextInput
+                  style={[styles.inputField, { color: theme.text.primary }]}
+                  placeholder="Rishabh Bhatt"
+                  placeholderTextColor={theme.text.muted}
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                />
+              </View>
             </View>
           )}
 
           {/* Email Field */}
           <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Mail size={13} color={theme.text.tertiary} />
-              <Text style={[styles.label, { color: theme.text.tertiary, fontFamily: typography.fonts.uiMedium }]}>
-                EMAIL ADDRESS
-              </Text>
-            </View>
-            <TextInput
+            <Text style={[styles.inputLabel, { color: theme.text.tertiary }]}>
+              EMAIL ADDRESS
+            </Text>
+            <View
               style={[
-                styles.input,
+                styles.inputBox,
                 {
-                  color: theme.text.primary,
-                  backgroundColor: isDark ? theme.card.highlight : theme.card.elevated,
-                  borderColor: theme.border.subtle,
-                  fontFamily: typography.fonts.uiRegular,
+                  backgroundColor: theme.card.highlight,
+                  borderColor: theme.border.glass,
                 },
               ]}
-              placeholder="you@example.com"
-              placeholderTextColor={theme.text.muted}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+            >
+              <Mail size={16} color={theme.text.muted} />
+              <TextInput
+                style={[styles.inputField, { color: theme.text.primary }]}
+                placeholder="you@example.com"
+                placeholderTextColor={theme.text.muted}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
           </View>
 
           {/* Password Field */}
           <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Lock size={13} color={theme.text.tertiary} />
-              <Text style={[styles.label, { color: theme.text.tertiary, fontFamily: typography.fonts.uiMedium }]}>
-                PASSWORD
-              </Text>
-            </View>
-            <TextInput
+            <Text style={[styles.inputLabel, { color: theme.text.tertiary }]}>
+              PASSWORD
+            </Text>
+            <View
               style={[
-                styles.input,
+                styles.inputBox,
                 {
-                  color: theme.text.primary,
-                  backgroundColor: isDark ? theme.card.highlight : theme.card.elevated,
-                  borderColor: theme.border.subtle,
-                  fontFamily: typography.fonts.uiRegular,
+                  backgroundColor: theme.card.highlight,
+                  borderColor: theme.border.glass,
                 },
               ]}
-              placeholder="••••••••"
-              placeholderTextColor={theme.text.muted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+            >
+              <Lock size={16} color={theme.text.muted} />
+              <TextInput
+                style={[styles.inputField, { color: theme.text.primary }]}
+                placeholder="••••••••"
+                placeholderTextColor={theme.text.muted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
           </View>
 
-          {/* Error Banner */}
+          {/* Error Message */}
           {error ? (
-            <View style={[styles.errorContainer, { backgroundColor: 'rgba(248, 113, 113, 0.12)', borderColor: theme.semantic.alert }]}>
-              <AlertCircle size={16} color={theme.semantic.alert} style={{ marginRight: spacing.xs }} />
-              <Text style={[styles.errorText, { color: theme.semantic.alert, fontFamily: typography.fonts.uiMedium }]}>
+            <View
+              style={[
+                styles.errorContainer,
+                {
+                  backgroundColor: 'rgba(248, 113, 113, 0.12)',
+                  borderColor: theme.semantic.alert,
+                },
+              ]}
+            >
+              <AlertCircle size={15} color={theme.semantic.alert} style={{ marginRight: spacing.xs }} />
+              <Text style={[styles.errorText, { color: theme.semantic.alert }]}>
                 {error}
               </Text>
             </View>
           ) : null}
 
-          {/* Primary Action Button */}
+          {/* Submit Button */}
           <Button
             title={mode === 'signin' ? 'Sign In' : 'Create Account'}
             onPress={handleEmailAuth}
             loading={loading}
+            fullWidth
             icon={<ArrowRight size={18} color="#FFFFFF" />}
             iconPosition="right"
-            fullWidth
             style={{ marginTop: spacing.sm }}
           />
-
-          {/* Switch Mode Prompt */}
-          <Pressable
-            style={styles.switchModePrompt}
-            onPress={() => {
-              setMode(mode === 'signin' ? 'signup' : 'signin');
-              setError('');
-            }}
-          >
-            <Text style={[styles.switchModeText, { color: theme.text.secondary, fontFamily: typography.fonts.uiRegular }]}>
-              {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-              <Text style={{ color: theme.accent.violet, fontFamily: typography.fonts.uiSemiBold }}>
-                {mode === 'signin' ? 'Sign Up' : 'Sign In'}
-              </Text>
-            </Text>
-          </Pressable>
         </Card>
 
-        {/* Footer / Skip */}
-        <View style={styles.footer}>
-          <Button
-            title="Skip for now"
-            variant="ghost"
-            onPress={onComplete}
-          />
-        </View>
+        {/* Footer Note */}
+        <Text style={[styles.footerText, { color: theme.text.muted }]}>
+          By continuing, you agree to Hourly's Terms of Service and Privacy Policy.
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
+
+// ─── Styles ──────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,
     paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.xxl,
-    justifyContent: 'center',
+    paddingTop: 56,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
-  iconWrapper: {
+  heroIconOuter: {
+    marginBottom: spacing.md,
+  },
+  heroIconGradient: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
   },
   title: {
-    fontSize: typography.scale.xl,
-    marginBottom: spacing.xs,
+    fontSize: 26,
+    fontWeight: '700',
     includeFontPadding: false,
-    textAlign: 'center',
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: typography.scale.sm,
+    fontSize: 14,
+    fontWeight: '400',
     textAlign: 'center',
     includeFontPadding: false,
-    maxWidth: 290,
-    lineHeight: 20,
   },
-  tabContainer: {
-    marginBottom: spacing.md,
-  },
-  card: {
+  // Guest Card
+  guestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.base,
+    borderRadius: layout.borderRadius.card,
+    borderWidth: 1,
+    gap: spacing.md,
     marginBottom: spacing.lg,
   },
-  socialHeading: {
-    fontSize: 10,
-    letterSpacing: 1,
-    marginBottom: spacing.sm,
-    includeFontPadding: false,
-    textAlign: 'center',
+  guestIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  socialRow: {
+  guestTextCol: {
+    flex: 1,
+  },
+  guestTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    includeFontPadding: false,
+    marginBottom: 2,
+  },
+  guestDesc: {
+    fontSize: 12,
+    fontWeight: '400',
+    includeFontPadding: false,
+  },
+  // Dividers
+  sectionDivider: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    includeFontPadding: false,
+  },
+  // Social row
+  socialRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
+  },
   socialButton: {
     flex: 1,
-    height: 44,
-    borderWidth: 1,
+    height: 46,
     borderRadius: layout.borderRadius.md,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 4,
   },
-  socialButtonText: {
-    fontSize: 12,
+  socialText: {
+    fontSize: 13,
+    fontWeight: '600',
     includeFontPadding: false,
   },
-  dividerRow: {
+  // Email Form Card
+  formCard: {
+    marginBottom: spacing.lg,
+  },
+  modeToggleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.md,
-    gap: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    borderRadius: layout.borderRadius.sm,
+    padding: 3,
+    marginBottom: spacing.base,
   },
-  dividerLine: {
+  modeTab: {
     flex: 1,
-    height: 1,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: layout.borderRadius.sm - 2,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  dividerText: {
-    fontSize: 11,
+  modeTabText: {
+    fontSize: 13,
     includeFontPadding: false,
   },
   inputGroup: {
     marginBottom: spacing.md,
   },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: spacing.xs,
-  },
-  label: {
-    fontSize: 11,
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '600',
     letterSpacing: 0.8,
+    marginBottom: 6,
     includeFontPadding: false,
   },
-  input: {
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 48,
-    borderWidth: 1,
     borderRadius: layout.borderRadius.md,
+    borderWidth: 1,
     paddingHorizontal: spacing.md,
-    fontSize: typography.scale.base,
+    gap: spacing.sm,
+  },
+  inputField: {
+    flex: 1,
+    fontSize: 15,
+    includeFontPadding: false,
+    height: '100%',
   },
   errorContainer: {
     flexDirection: 'row',
@@ -485,25 +610,19 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadius.sm,
     paddingVertical: spacing.xs + 2,
     paddingHorizontal: spacing.sm,
-    marginTop: spacing.xs,
     marginBottom: spacing.sm,
   },
   errorText: {
-    fontSize: typography.scale.xs,
+    fontSize: 12,
+    fontWeight: '500',
     includeFontPadding: false,
     flex: 1,
   },
-  switchModePrompt: {
-    marginTop: spacing.md,
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  switchModeText: {
-    fontSize: typography.scale.xs,
+  footerText: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
     includeFontPadding: false,
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: spacing.xs,
+    paddingHorizontal: spacing.xl,
   },
 });

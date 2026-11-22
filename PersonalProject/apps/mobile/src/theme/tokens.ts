@@ -1,17 +1,20 @@
+import { Platform } from 'react-native';
+
 /**
  * Design Tokens for Hourly
- * Android-first, calm & premium: "Apple Fitness meets Linear".
- * Spec Reference: Section 9.1
+ * Glassmorphism-first, modern & premium.
+ * Font: Clean native system font (Roboto on Android, San Francisco on iOS).
  */
 
 export const colorPalette = {
-  // Brand accents
+  // Brand accents — more vibrant for glass theme
   accent: {
-    violet: '#7C5CFF',
-    aqua: '#35E0C2',
-    gradient: ['#7C5CFF', '#35E0C2'] as const,
-    gradientReverse: ['#35E0C2', '#7C5CFF'] as const,
-    glow: 'rgba(124, 92, 255, 0.25)',
+    violet: '#8B5CF6',
+    aqua: '#06B6D4',
+    gradient: ['#8B5CF6', '#06B6D4'] as const,
+    gradientReverse: ['#06B6D4', '#8B5CF6'] as const,
+    glow: 'rgba(139, 92, 246, 0.30)',
+    glowCyan: 'rgba(6, 182, 212, 0.25)',
   },
   // Semantic feedback
   semantic: {
@@ -39,36 +42,37 @@ export const colorPalette = {
   } as Record<string, string>,
   // Curated fallback palette for unknown packages (stable hash)
   hashPalette: [
-    '#7C5CFF', '#35E0C2', '#F59E0B', '#EC4899', 
-    '#3B82F6', '#10B981', '#8B5CF6', '#F97316', 
-    '#06B6D4', '#E11D48', '#14B8A6', '#6366F1'
+    '#8B5CF6', '#06B6D4', '#F59E0B', '#EC4899',
+    '#3B82F6', '#10B981', '#A855F7', '#F97316',
+    '#14B8A6', '#E11D48', '#22D3EE', '#6366F1',
   ],
 };
 
 export const darkTheme = {
   isDark: true,
-  background: '#0B0D12',
-  backgroundSubtle: '#0F121A',
+  background: '#060810',
+  backgroundSubtle: '#0A0D16',
   card: {
-    base: '#12151C',
-    elevated: '#171B24',
-    highlight: '#1E232E',
-    glass: 'rgba(18, 21, 28, 0.75)',
+    base: 'rgba(15, 18, 30, 0.65)',
+    elevated: 'rgba(20, 24, 40, 0.70)',
+    highlight: 'rgba(30, 35, 55, 0.75)',
+    glass: 'rgba(15, 18, 30, 0.55)',
   },
   text: {
-    primary: '#FFFFFF',
+    primary: '#F1F5F9',
     secondary: '#94A3B8',
     tertiary: '#64748B',
     muted: '#475569',
   },
   border: {
-    subtle: 'rgba(255, 255, 255, 0.06)',
-    active: 'rgba(124, 92, 255, 0.4)',
-    strong: 'rgba(255, 255, 255, 0.12)',
+    subtle: 'rgba(255, 255, 255, 0.08)',
+    active: 'rgba(139, 92, 246, 0.45)',
+    strong: 'rgba(255, 255, 255, 0.14)',
+    glass: 'rgba(255, 255, 255, 0.10)',
   },
   accent: colorPalette.accent,
   semantic: colorPalette.semantic,
-  overlay: 'rgba(0, 0, 0, 0.7)',
+  overlay: 'rgba(0, 0, 0, 0.75)',
 };
 
 export const lightTheme = {
@@ -76,10 +80,10 @@ export const lightTheme = {
   background: '#F8FAFC',
   backgroundSubtle: '#F1F5F9',
   card: {
-    base: '#FFFFFF',
-    elevated: '#F8FAFC',
-    highlight: '#EDF2F7',
-    glass: 'rgba(255, 255, 255, 0.85)',
+    base: 'rgba(255, 255, 255, 0.80)',
+    elevated: 'rgba(255, 255, 255, 0.85)',
+    highlight: 'rgba(240, 243, 250, 0.85)',
+    glass: 'rgba(255, 255, 255, 0.65)',
   },
   text: {
     primary: '#0F172A',
@@ -89,8 +93,9 @@ export const lightTheme = {
   },
   border: {
     subtle: 'rgba(0, 0, 0, 0.07)',
-    active: 'rgba(124, 92, 255, 0.4)',
+    active: 'rgba(139, 92, 246, 0.4)',
     strong: 'rgba(0, 0, 0, 0.14)',
+    glass: 'rgba(0, 0, 0, 0.06)',
   },
   accent: colorPalette.accent,
   semantic: colorPalette.semantic,
@@ -101,13 +106,13 @@ export type Theme = typeof darkTheme;
 
 export const typography = {
   fonts: {
-    uiRegular: 'PlusJakartaSans_400Regular',
-    uiMedium: 'PlusJakartaSans_500Medium',
-    uiSemiBold: 'PlusJakartaSans_600SemiBold',
-    uiBold: 'PlusJakartaSans_700Bold',
-    numbersRegular: 'SpaceGrotesk_400Regular',
-    numbersMedium: 'SpaceGrotesk_500Medium',
-    numbersBold: 'SpaceGrotesk_700Bold',
+    uiRegular: Platform.select({ ios: 'System', android: 'sans-serif', default: 'sans-serif' }),
+    uiMedium: Platform.select({ ios: 'System', android: 'sans-serif-medium', default: 'sans-serif' }),
+    uiSemiBold: Platform.select({ ios: 'System', android: 'sans-serif-medium', default: 'sans-serif' }),
+    uiBold: Platform.select({ ios: 'System', android: 'sans-serif', default: 'sans-serif' }),
+    numbersRegular: Platform.select({ ios: 'System', android: 'sans-serif', default: 'sans-serif' }),
+    numbersMedium: Platform.select({ ios: 'System', android: 'sans-serif-medium', default: 'sans-serif' }),
+    numbersBold: Platform.select({ ios: 'System', android: 'sans-serif', default: 'sans-serif' }),
   },
   scale: {
     xs: 12,
@@ -147,9 +152,28 @@ export const layout = {
     sm: 8,
     md: 12,
     chip: 16,
-    card: 24,
+    card: 20,
+    lg: 24,
     pill: 999,
   },
+};
+
+/** Glass shadow preset for glowing cards */
+export const glassShadow = {
+  shadowColor: colorPalette.accent.violet,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.15,
+  shadowRadius: 20,
+  elevation: 8,
+};
+
+/** Neutral shadow for non-accent glass surfaces */
+export const neutralShadow = {
+  shadowColor: '#000000',
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.3,
+  shadowRadius: 16,
+  elevation: 10,
 };
 
 /**

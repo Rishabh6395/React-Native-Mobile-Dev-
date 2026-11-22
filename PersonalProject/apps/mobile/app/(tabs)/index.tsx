@@ -1,9 +1,7 @@
 /**
- * Home Screen — Main dashboard
- * Spec Reference: Section 9.4 Screen 3
+ * Home Screen — Main dashboard (Glassmorphism redesign)
  *
- * Greeting, hero ProgressRing with today's total and delta vs yesterday,
- * 24h MiniTimeline, top 3 apps, coach insight card.
+ * Hero ProgressRing, glowing line chart, glass top-app cards, coach insight.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -15,7 +13,6 @@ import {
   TrendingDown,
   TrendingUp,
   Minus,
-  Layers,
 } from 'lucide-react-native';
 import { AppUsage, HourBucket } from '../../modules/usage-stats';
 import { usageRepository } from '../../src/features/usage/UsageRepository';
@@ -25,6 +22,7 @@ import {
   getTopApps,
   computeDeltas,
   formatDeltaTime,
+  formatHourLabel,
   TopApp,
   Delta,
 } from '../../src/features/usage/usageAggregation';
@@ -43,8 +41,8 @@ import {
   Pill,
   Pressable3D,
 } from '../../src/components/ui';
-import { MiniTimeline } from '../../src/components/charts';
-import { layout, spacing, typography, getAppColor } from '../../src/theme/tokens';
+import { ActivityLineChart, LineDataPoint } from '../../src/components/charts';
+import { layout, spacing, typography, getAppColor, glassShadow } from '../../src/theme/tokens';
 
 export default function HomeScreen() {
   const { theme, isDark } = useTheme();
@@ -61,19 +59,14 @@ export default function HomeScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Refresh today
       await usageRepository.refreshToday();
-
-      // Get today's data
       const todayUsage = await usageRepository.getTodayUsage();
       setUsage(todayUsage);
       setTopApps(getTopApps(todayUsage, 3));
 
-      // Get hourly data
       const hourly = usageRepository.getHourlyUsageToday();
       setHourlyData(hourly);
 
-      // Compute delta vs yesterday
       const yesterdayUsage = await usageRepository.getPreviousDayUsage();
       const yesterdayTotal = yesterdayUsage.reduce((sum, a) => sum + a.foregroundMs, 0);
       const todayTotal = todayUsage.reduce((sum, a) => sum + a.foregroundMs, 0);
@@ -115,28 +108,36 @@ export default function HomeScreen() {
     };
   }, [fetchData]);
 
-  // ─── Loading State ─────────────────────────────────────────
+  // Convert hourly buckets to line chart data
+  const lineData: LineDataPoint[] = React.useMemo(() => {
+    const filled: LineDataPoint[] = [];
+    for (let h = 0; h < 24; h++) {
+      const bucket = hourlyData.find((b) => b.hour === h);
+      filled.push({
+        label: formatHourLabel(h),
+        value: bucket?.foregroundMs ?? 0,
+      });
+    }
+    return filled;
+  }, [hourlyData]);
+
+  // ─── Loading ───────────────────────────────────────────────
 
   if (loading) {
     return (
       <Screen scrollable>
         <View style={styles.skeletonContainer}>
-          <Skeleton
-            variant="circle"
-            width={170}
-            height={170}
-            style={{ alignSelf: 'center', marginBottom: 24 }}
-          />
+          <Skeleton variant="circle" width={170} height={170} style={{ alignSelf: 'center', marginBottom: 24 }} />
           <Skeleton variant="rect" height={40} style={{ marginBottom: 12 }} />
-          <Skeleton variant="rect" height={80} style={{ marginBottom: 12 }} />
-          <Skeleton variant="rect" height={80} style={{ marginBottom: 12 }} />
-          <Skeleton variant="rect" height={80} />
+          <Skeleton variant="rect" height={120} style={{ marginBottom: 12, borderRadius: 20 }} />
+          <Skeleton variant="rect" height={80} style={{ marginBottom: 12, borderRadius: 20 }} />
+          <Skeleton variant="rect" height={80} style={{ borderRadius: 20 }} />
         </View>
       </Screen>
     );
   }
 
-  // ─── Delta icon and color ──────────────────────────────────
+  // ─── Delta ─────────────────────────────────────────────────
 
   const deltaColor =
     delta.direction === 'down'
@@ -162,20 +163,11 @@ export default function HomeScreen() {
           title={getGreeting()}
           subtitle="Here's your screen time today"
           largeTitle
-          rightAction={
-            <Button
-              title="Dev"
-              size="sm"
-              variant="secondary"
-              icon={<Layers size={14} color={theme.text.primary} />}
-              onPress={() => router.push('/dev/components')}
-            />
-          }
         />
       }
     >
       {/* Hero Progress Ring */}
-      <Card style={styles.heroCard}>
+      <Card style={styles.heroCard} glassBlur>
         <ProgressRing
           progress={Math.min(totalMinutes / 360, 1)}
           size={170}
@@ -213,8 +205,8 @@ export default function HomeScreen() {
         </ProgressRing>
       </Card>
 
-      {/* 24h Mini Timeline */}
-      <Card style={styles.timelineCard} padding="base">
+      {/* Activity Line Chart */}
+      <Card style={styles.chartCard} padding="base">
         <Text
           style={[
             styles.sectionLabel,
@@ -226,7 +218,11 @@ export default function HomeScreen() {
         >
           TODAY'S ACTIVITY
         </Text>
-        <MiniTimeline data={hourlyData} barHeight={36} />
+        <ActivityLineChart
+          data={lineData}
+          height={130}
+          maxLabels={5}
+        />
       </Card>
 
       {/* Top 3 Apps */}
@@ -259,12 +255,20 @@ export default function HomeScreen() {
             >
               <Card style={styles.topAppCard} variant="base" padding="base">
                 <View style={styles.topAppRow}>
-                  <View style={styles.topAppRank}>
+                  <View
+                    style={[
+                      styles.topAppRank,
+                      {
+                        backgroundColor: `${app.color}18`,
+                        borderColor: `${app.color}30`,
+                      },
+                    ]}
+                  >
                     <Text
                       style={[
                         styles.rankText,
                         {
-                          color: theme.text.muted,
+                          color: app.color,
                           fontFamily: typography.fonts.numbersBold,
                         },
                       ]}
@@ -299,7 +303,7 @@ export default function HomeScreen() {
                         },
                       ]}
                     >
-                      {app.category} • {app.percentage}%
+                      {app.category} · {app.percentage}%
                     </Text>
                   </View>
                   <Text
@@ -321,11 +325,12 @@ export default function HomeScreen() {
       )}
 
       {/* Coach Insight Card */}
-      <GlowCard style={styles.coachCard} padding="base">
+      <GlowCard style={styles.coachCard} padding="base" glassBlur>
         <View style={styles.coachHeader}>
           <View
             style={[
               styles.coachIconCircle,
+              glassShadow,
               { backgroundColor: theme.accent.violet },
             ]}
           >
@@ -384,7 +389,7 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Bottom spacer for tab bar */}
+      {/* Bottom spacer */}
       <View style={styles.bottomSpacer} />
     </Screen>
   );
@@ -416,7 +421,7 @@ const styles = StyleSheet.create({
     fontSize: typography.scale.xs,
     includeFontPadding: false,
   },
-  timelineCard: {
+  chartCard: {
     marginBottom: spacing.md,
   },
   sectionLabel: {
@@ -437,12 +442,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   topAppRank: {
-    width: 24,
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: spacing.sm,
   },
   rankText: {
-    fontSize: typography.scale.sm,
+    fontSize: typography.scale.xs,
     includeFontPadding: false,
   },
   topAppInfo: {
@@ -472,12 +481,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   coachIconCircle: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     borderRadius: layout.borderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.xs,
+    marginRight: spacing.sm,
   },
   coachTitle: {
     fontSize: typography.scale.sm,

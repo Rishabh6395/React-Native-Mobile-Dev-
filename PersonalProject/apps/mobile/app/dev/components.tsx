@@ -119,14 +119,25 @@ export default function ComponentsGalleryScreen() {
         onDismiss={() => setToastVisible(false)}
       />
 
-      {/* 1. Theme Status Bar */}
+      {/* 1. Theme Status Bar & Flow Reset */}
       <Card style={styles.sectionCard} variant="elevated">
         <Text style={[styles.sectionTitle, { color: theme.text.primary }]}>
           Current Theme: {isDark ? 'Dark Mode' : 'Light Mode'}
         </Text>
-        <Text style={[styles.sectionSub, { color: theme.text.secondary }]}>
-          Deep ink background (#0B0D12), 1px border at 6% white, Space Grotesk numerals & Plus Jakarta Sans typography.
+        <Text style={[styles.sectionSub, { color: theme.text.secondary, marginBottom: spacing.sm }]}>
+          Glassmorphism background (#060810), frosted glass surfaces & Inter typography.
         </Text>
+        <Button
+          title="Test Onboarding & Auth Flow"
+          size="sm"
+          variant="secondary"
+          onPress={async () => {
+            const { resetAllAuthState } = await import('../../src/lib/auth');
+            await resetAllAuthState();
+            const { router } = await import('expo-router');
+            router.replace('/');
+          }}
+        />
       </Card>
 
       {/* 2. Progress Ring & Animated Number */}

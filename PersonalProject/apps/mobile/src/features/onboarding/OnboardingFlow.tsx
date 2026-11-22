@@ -8,9 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  useReducedMotion,
-} from 'react-native-reanimated';
+import { useReducedMotion } from 'react-native-reanimated';
 import {
   ShieldCheck,
   Sparkles,
@@ -26,7 +24,7 @@ import { GlowCard } from '../../components/ui/GlowCard';
 import { Pill } from '../../components/ui/Pill';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { triggerHaptic } from '../../theme/motion';
-import { layout, spacing, typography } from '../../theme/tokens';
+import { layout, spacing } from '../../theme/tokens';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -83,31 +81,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
           >
             <Clock size={16} color="#FFFFFF" strokeWidth={2.5} />
           </View>
-          <Text
-            style={[
-              styles.brandName,
-              {
-                color: theme.text.primary,
-                fontFamily: typography.fonts.numbersBold,
-              },
-            ]}
-          >
+          <Text style={[styles.brandName, { color: theme.text.primary }]}>
             Hourly
           </Text>
         </View>
 
         {currentPage < totalPages - 1 && (
-          <Pressable onPress={() => goToPage(totalPages - 1)} hitSlop={12}>
-            <Text
-              style={[
-                styles.skipText,
-                {
-                  color: theme.text.tertiary,
-                  fontFamily: typography.fonts.uiMedium,
-                },
-              ]}
-              textBreakStrategy="simple"
-            >
+          <Pressable onPress={() => goToPage(totalPages - 1)} hitSlop={16}>
+            <Text style={[styles.skipText, { color: theme.text.tertiary }]}>
               Skip
             </Text>
           </Pressable>
@@ -144,26 +125,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                 gradientColors={theme.accent.gradient}
               >
                 <View style={styles.ringCenterContent}>
-                  <Text
-                    style={[
-                      styles.heroHours,
-                      {
-                        color: theme.text.primary,
-                        fontFamily: typography.fonts.numbersBold,
-                      },
-                    ]}
-                  >
+                  <Text style={[styles.heroHours, { color: theme.text.primary }]}>
                     3h 42m
                   </Text>
-                  <Text
-                    style={[
-                      styles.heroSubLabel,
-                      {
-                        color: theme.semantic.good,
-                        fontFamily: typography.fonts.uiMedium,
-                      },
-                    ]}
-                  >
+                  <Text style={[styles.heroSubLabel, { color: theme.semantic.good }]}>
                     ↓ 38m less today
                   </Text>
                 </View>
@@ -177,28 +142,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             </View>
 
             <View style={styles.textBlock}>
-              <Text
-                style={[
-                  styles.title,
-                  {
-                    color: theme.text.primary,
-                    fontFamily: typography.fonts.numbersBold,
-                  },
-                ]}
-                textBreakStrategy="simple"
-              >
+              <Text style={[styles.title, { color: theme.text.primary }]}>
                 Where your time goes
               </Text>
-              <Text
-                style={[
-                  styles.description,
-                  {
-                    color: theme.text.secondary,
-                    fontFamily: typography.fonts.uiRegular,
-                  },
-                ]}
-                textBreakStrategy="simple"
-              >
+              <Text style={[styles.description, { color: theme.text.secondary }]}>
                 Clear, calming clarity on your daily screen time habits. No guilt, no judgment, just awareness.
               </Text>
             </View>
@@ -212,28 +159,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                   <View style={styles.coachBadge}>
                     <Sparkles size={14} color="#FFFFFF" />
                   </View>
-                  <Text
-                    style={[
-                      styles.coachCardTitle,
-                      {
-                        color: theme.text.primary,
-                        fontFamily: typography.fonts.uiSemiBold,
-                      },
-                    ]}
-                  >
+                  <Text style={[styles.coachCardTitle, { color: theme.text.primary }]}>
                     Coach Insight
                   </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.coachMessage,
-                    {
-                      color: theme.text.secondary,
-                      fontFamily: typography.fonts.uiRegular,
-                    },
-                  ]}
-                  textBreakStrategy="simple"
-                >
+                <Text style={[styles.coachMessage, { color: theme.text.secondary }]}>
                   {'"You watched 9h 40m of video this week. Tell me what you loved, and let\'s find high-impact swaps!"'}
                 </Text>
 
@@ -245,28 +175,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             </View>
 
             <View style={styles.textBlock}>
-              <Text
-                style={[
-                  styles.title,
-                  {
-                    color: theme.text.primary,
-                    fontFamily: typography.fonts.numbersBold,
-                  },
-                ]}
-                textBreakStrategy="simple"
-              >
+              <Text style={[styles.title, { color: theme.text.primary }]}>
                 Your personal time coach
               </Text>
-              <Text
-                style={[
-                  styles.description,
-                  {
-                    color: theme.text.secondary,
-                    fontFamily: typography.fonts.uiRegular,
-                  },
-                ]}
-                textBreakStrategy="simple"
-              >
+              <Text style={[styles.description, { color: theme.text.secondary }]}>
                 Get structured reports, explain what you watched, and build gradual reduction plans that stick.
               </Text>
             </View>
@@ -286,26 +198,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     <Smartphone size={18} color={theme.semantic.good} />
                   </View>
                   <View style={styles.privacyItemText}>
-                    <Text
-                      style={[
-                        styles.privacyItemTitle,
-                        {
-                          color: theme.text.primary,
-                          fontFamily: typography.fonts.uiSemiBold,
-                        },
-                      ]}
-                    >
+                    <Text style={[styles.privacyItemTitle, { color: theme.text.primary }]}>
                       Device-First Storage
                     </Text>
-                    <Text
-                      style={[
-                        styles.privacyItemSub,
-                        {
-                          color: theme.text.secondary,
-                          fontFamily: typography.fonts.uiRegular,
-                        },
-                      ]}
-                    >
+                    <Text style={[styles.privacyItemSub, { color: theme.text.secondary }]}>
                       Raw session events stay in local SQLite on your phone.
                     </Text>
                   </View>
@@ -321,26 +217,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     <Lock size={18} color={theme.accent.violet} />
                   </View>
                   <View style={styles.privacyItemText}>
-                    <Text
-                      style={[
-                        styles.privacyItemTitle,
-                        {
-                          color: theme.text.primary,
-                          fontFamily: typography.fonts.uiSemiBold,
-                        },
-                      ]}
-                    >
+                    <Text style={[styles.privacyItemTitle, { color: theme.text.primary }]}>
                       No Screen Scraping
                     </Text>
-                    <Text
-                      style={[
-                        styles.privacyItemSub,
-                        {
-                          color: theme.text.secondary,
-                          fontFamily: typography.fonts.uiRegular,
-                        },
-                      ]}
-                    >
+                    <Text style={[styles.privacyItemSub, { color: theme.text.secondary }]}>
                       We never read screen content, keystrokes, or messages.
                     </Text>
                   </View>
@@ -356,26 +236,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     <ShieldCheck size={18} color={theme.semantic.info} />
                   </View>
                   <View style={styles.privacyItemText}>
-                    <Text
-                      style={[
-                        styles.privacyItemTitle,
-                        {
-                          color: theme.text.primary,
-                          fontFamily: typography.fonts.uiSemiBold,
-                        },
-                      ]}
-                    >
+                    <Text style={[styles.privacyItemTitle, { color: theme.text.primary }]}>
                       Daily Totals Only
                     </Text>
-                    <Text
-                      style={[
-                        styles.privacyItemSub,
-                        {
-                          color: theme.text.secondary,
-                          fontFamily: typography.fonts.uiRegular,
-                        },
-                      ]}
-                    >
+                    <Text style={[styles.privacyItemSub, { color: theme.text.secondary }]}>
                       Only high-level daily aggregates sync for AI reports.
                     </Text>
                   </View>
@@ -384,28 +248,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             </View>
 
             <View style={styles.textBlock}>
-              <Text
-                style={[
-                  styles.title,
-                  {
-                    color: theme.text.primary,
-                    fontFamily: typography.fonts.numbersBold,
-                  },
-                ]}
-                textBreakStrategy="simple"
-              >
+              <Text style={[styles.title, { color: theme.text.primary }]}>
                 Our Privacy Promise
               </Text>
-              <Text
-                style={[
-                  styles.description,
-                  {
-                    color: theme.text.secondary,
-                    fontFamily: typography.fonts.uiRegular,
-                  },
-                ]}
-                textBreakStrategy="simple"
-              >
+              <Text style={[styles.description, { color: theme.text.secondary }]}>
                 Your privacy is paramount. Full transparency, zero sale of personal data, export or delete anytime.
               </Text>
             </View>
@@ -479,12 +325,13 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   brandName: {
-    fontSize: typography.scale.lg,
+    fontSize: 20,
+    fontWeight: '700',
     includeFontPadding: false,
-    paddingHorizontal: spacing.xs,
   },
   skipText: {
-    fontSize: typography.scale.sm,
+    fontSize: 14,
+    fontWeight: '500',
     includeFontPadding: false,
     paddingHorizontal: spacing.sm,
   },
@@ -494,8 +341,6 @@ const styles = StyleSheet.create({
   },
   page: {
     height: '100%',
-    flexGrow: 0,
-    flexShrink: 0,
     paddingHorizontal: layout.screenPadding,
     justifyContent: 'space-between',
     paddingVertical: spacing.md,
@@ -504,18 +349,19 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 0,
   },
   ringCenterContent: {
     alignItems: 'center',
   },
   heroHours: {
-    fontSize: typography.scale.xl,
+    fontSize: 28,
+    fontWeight: '700',
     includeFontPadding: false,
   },
   heroSubLabel: {
-    fontSize: typography.scale.xs,
-    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
     includeFontPadding: false,
   },
   samplePillsRow: {
@@ -535,7 +381,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   coachBadge: {
-    backgroundColor: '#7C5CFF',
+    backgroundColor: '#8B5CF6',
     width: 22,
     height: 22,
     borderRadius: 999,
@@ -544,12 +390,14 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   coachCardTitle: {
-    fontSize: typography.scale.sm,
+    fontSize: 14,
+    fontWeight: '600',
     includeFontPadding: false,
   },
   coachMessage: {
-    fontSize: typography.scale.sm,
-    lineHeight: typography.lineHeight.sm + 2,
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 20,
     marginBottom: spacing.md,
     includeFontPadding: false,
   },
@@ -567,7 +415,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   privacyIconWrap: {
     width: 36,
@@ -581,40 +429,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   privacyItemTitle: {
-    fontSize: typography.scale.sm,
+    fontSize: 14,
+    fontWeight: '600',
     includeFontPadding: false,
+    marginBottom: 2,
   },
   privacyItemSub: {
-    fontSize: typography.scale.xs,
-    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '400',
+    lineHeight: 16,
     includeFontPadding: false,
   },
   textBlock: {
     alignItems: 'center',
     marginBottom: spacing.md,
     width: '100%',
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
   title: {
-    fontSize: typography.scale.xl,
+    fontSize: 24,
+    fontWeight: '700',
     textAlign: 'center',
     marginBottom: spacing.sm,
     includeFontPadding: false,
-    letterSpacing: -0.5,
-    paddingHorizontal: spacing.sm,
   },
   description: {
-    fontSize: typography.scale.sm,
+    fontSize: 14,
+    fontWeight: '400',
     textAlign: 'center',
-    lineHeight: typography.lineHeight.sm + 4,
+    lineHeight: 20,
     includeFontPadding: false,
-    width: '100%',
-    paddingHorizontal: spacing.md,
+    maxWidth: 320,
   },
   bottomNav: {
     paddingHorizontal: layout.screenPadding,
     alignItems: 'center',
-    gap: spacing.lg,
+    gap: spacing.md,
+    width: '100%',
   },
   dotsRow: {
     flexDirection: 'row',

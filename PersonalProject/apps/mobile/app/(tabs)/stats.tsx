@@ -1,9 +1,7 @@
 /**
- * Stats Screen — Day/Week/Month usage dashboards
- * Spec Reference: Section 9.4 Screen 4
+ * Stats Screen — Day/Week/Month usage dashboards (Glassmorphism redesign)
  *
- * Segmented Day/Week/Month, scrubbable bar chart, category donut,
- * ranked app list with animated bars and delta chips.
+ * Line charts with glow, horizontal category bars, glass app cards.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -19,7 +17,6 @@ import { AppUsage } from '../../modules/usage-stats';
 import { usageRepository } from '../../src/features/usage/UsageRepository';
 import {
   formatMs,
-  formatMsToMinutes,
   aggregateByCategory,
   aggregateByDay,
   computeDeltas,
@@ -31,7 +28,6 @@ import {
   formatHourLabel,
   DateUsageRow,
   CategoryAggregate,
-  DailyAggregate,
   Delta,
   TopApp,
 } from '../../src/features/usage/usageAggregation';
@@ -45,9 +41,13 @@ import {
   Skeleton,
   EmptyState,
   Pressable3D,
-  Pill,
 } from '../../src/components/ui';
-import { BarChart, CategoryDonut, UsageBar, BarDataPoint } from '../../src/components/charts';
+import {
+  ActivityLineChart,
+  LineDataPoint,
+  CategoryBars,
+  UsageBar,
+} from '../../src/components/charts';
 import { layout, spacing, typography, getAppColor } from '../../src/theme/tokens';
 
 type TimeRange = 'day' | 'week' | 'month';
@@ -72,7 +72,7 @@ export default function StatsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Data states
-  const [barData, setBarData] = useState<BarDataPoint[]>([]);
+  const [lineData, setLineData] = useState<LineDataPoint[]>([]);
   const [categories, setCategories] = useState<CategoryAggregate[]>([]);
   const [rankedApps, setRankedApps] = useState<AppRankedItem[]>([]);
   const [totalMs, setTotalMs] = useState(0);
@@ -100,20 +100,18 @@ export default function StatsScreen() {
     const todayUsage = await usageRepository.getTodayUsage();
     const hourly = usageRepository.getHourlyUsageToday();
 
-    // Bar chart: 24 hourly buckets
-    const hourlyBars: BarDataPoint[] = Array.from({ length: 24 }, (_, h) => {
+    // Line chart: 24 hourly buckets
+    const hourlyPoints: LineDataPoint[] = Array.from({ length: 24 }, (_, h) => {
       const bucket = hourly.find((b) => b.hour === h);
       return {
         label: formatHourLabel(h),
         value: bucket?.foregroundMs ?? 0,
       };
     });
-    setBarData(hourlyBars);
+    setLineData(hourlyPoints);
 
-    // Categories
     setCategories(aggregateByCategory(todayUsage));
 
-    // Ranked apps
     const total = todayUsage.reduce((s, a) => s + a.foregroundMs, 0);
     setTotalMs(total);
     setRankedApps(
@@ -121,10 +119,9 @@ export default function StatsScreen() {
         ...app,
         percentage: total > 0 ? Math.round((app.foregroundMs / total) * 100) : 0,
         color: getAppColor(app.packageName),
-      }))
+      })),
     );
 
-    // Delta vs yesterday
     const yesterdayUsage = await usageRepository.getPreviousDayUsage();
     const yesterdayTotal = yesterdayUsage.reduce((s, a) => s + a.foregroundMs, 0);
     setDelta(computeDeltas(total, yesterdayTotal));
@@ -147,13 +144,12 @@ export default function StatsScreen() {
     rows: DateUsageRow[],
     prevRows: DateUsageRow[],
     days: number,
-    checkBackfill: boolean
+    checkBackfill: boolean,
   ) => {
-    // Daily aggregates for bar chart
     const dailyAggs = aggregateByDay(rows);
     const dateStrs = getLastNDays(days);
 
-    const bars: BarDataPoint[] = dateStrs.map((dateStr) => {
+    const points: LineDataPoint[] = dateStrs.map((dateStr) => {
       const agg = dailyAggs.find((d) => d.date === dateStr);
       return {
         label: days <= 7 ? getDayLabel(dateStr) : getShortDateLabel(dateStr),
@@ -161,9 +157,8 @@ export default function StatsScreen() {
         date: dateStr,
       };
     });
-    setBarData(bars);
+    setLineData(points);
 
-    // Merge all rows for category + ranking
     const mergedUsage = mergeUsageRows(rows);
     setCategories(aggregateByCategory(mergedUsage));
 
@@ -176,14 +171,12 @@ export default function StatsScreen() {
           ...app,
           percentage: total > 0 ? Math.round((app.foregroundMs / total) * 100) : 0,
           color: getAppColor(app.packageName),
-        }))
+        })),
     );
 
-    // Delta
     const prevTotal = prevRows.reduce((s, r) => s + r.foregroundMs, 0);
     setDelta(computeDeltas(total, prevTotal));
 
-    // Backfill check: if we have < 10 days of data for month view
     if (checkBackfill) {
       const uniqueDates = new Set(rows.map((r) => r.date));
       setIsBackfillNeeded(uniqueDates.size < 10);
@@ -192,7 +185,6 @@ export default function StatsScreen() {
     }
   };
 
-  /** Merge multi-day rows into per-app totals */
   const mergeUsageRows = (rows: DateUsageRow[]): AppUsage[] => {
     const map = new Map<string, AppUsage>();
     for (const row of rows) {
@@ -269,11 +261,10 @@ export default function StatsScreen() {
         <View style={styles.segmentWrapper}>
           <Skeleton variant="rect" height={44} />
         </View>
-        <Skeleton variant="rect" height={200} style={{ marginBottom: 16 }} />
-        <Skeleton variant="circle" width={160} height={160} style={{ alignSelf: 'center', marginBottom: 16 }} />
-        <Skeleton variant="rect" height={60} style={{ marginBottom: 8 }} />
-        <Skeleton variant="rect" height={60} style={{ marginBottom: 8 }} />
-        <Skeleton variant="rect" height={60} />
+        <Skeleton variant="rect" height={180} style={{ marginBottom: 16, borderRadius: 20 }} />
+        <Skeleton variant="rect" height={60} style={{ marginBottom: 8, borderRadius: 12 }} />
+        <Skeleton variant="rect" height={60} style={{ marginBottom: 8, borderRadius: 12 }} />
+        <Skeleton variant="rect" height={60} style={{ borderRadius: 12 }} />
       </Screen>
     );
   }
@@ -293,12 +284,20 @@ export default function StatsScreen() {
     >
       <Card style={styles.appCard} variant="base" padding="base">
         <View style={styles.appRow}>
-          <View style={styles.appRank}>
+          <View
+            style={[
+              styles.appRank,
+              {
+                backgroundColor: `${item.color}18`,
+                borderColor: `${item.color}30`,
+              },
+            ]}
+          >
             <Text
               style={[
                 styles.rankText,
                 {
-                  color: theme.text.muted,
+                  color: item.color,
                   fontFamily: typography.fonts.numbersBold,
                 },
               ]}
@@ -322,7 +321,7 @@ export default function StatsScreen() {
                 progress={item.percentage / 100}
                 color={item.color}
                 index={index}
-                trackColor={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}
+                trackColor={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}
               />
             </View>
           </View>
@@ -398,19 +397,19 @@ export default function StatsScreen() {
         </View>
       </View>
 
-      {/* Bar Chart */}
+      {/* Line Chart */}
       <Card style={styles.chartCard} padding="base">
-        <BarChart
-          data={barData}
+        <ActivityLineChart
+          data={lineData}
           height={160}
           showLabels
-          maxLabels={range === 'day' ? 8 : range === 'week' ? 7 : 10}
+          maxLabels={range === 'day' ? 5 : range === 'week' ? 7 : 8}
         />
       </Card>
 
-      {/* Category Donut */}
+      {/* Category Bars */}
       {categories.length > 0 && (
-        <Card style={styles.donutCard} padding="base">
+        <View style={styles.categorySection}>
           <Text
             style={[
               styles.sectionLabel,
@@ -419,14 +418,8 @@ export default function StatsScreen() {
           >
             CATEGORIES
           </Text>
-          <CategoryDonut
-            data={categories}
-            size={150}
-            strokeWidth={18}
-            totalMs={totalMs}
-            centerLabel={range === 'day' ? 'today' : range === 'week' ? 'this week' : 'this month'}
-          />
-        </Card>
+          <CategoryBars data={categories} totalMs={totalMs} />
+        </View>
       )}
 
       {/* Backfill Notice (Month view) */}
@@ -477,7 +470,7 @@ export default function StatsScreen() {
         )}
       </View>
 
-      {/* Bottom spacer for tab bar */}
+      {/* Bottom spacer */}
       <View style={styles.bottomSpacer} />
     </Screen>
   );
@@ -514,9 +507,8 @@ const styles = StyleSheet.create({
   chartCard: {
     marginBottom: spacing.md,
   },
-  donutCard: {
+  categorySection: {
     marginBottom: spacing.md,
-    alignItems: 'center',
   },
   sectionLabel: {
     fontSize: 11,
@@ -553,8 +545,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appRank: {
-    width: 22,
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: spacing.sm,
   },
   rankText: {

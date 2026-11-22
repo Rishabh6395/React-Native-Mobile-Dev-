@@ -1,6 +1,22 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+
+export const DEV_LAN_IP = '172.24.101.63';
 
 function getDevHost(): string {
+  // If running via Expo (on physical device or emulator), hostUri contains the PC's LAN IP e.g. "172.24.101.63:8081"
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+
+  if (hostUri) {
+    const hostIp = hostUri.split(':')[0];
+    if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
+      return `http://${hostIp}:3000`;
+    }
+  }
+
   if (Platform.OS === 'android') {
     const model = String((Platform.constants as any)?.Model || '').toLowerCase();
     const fingerprint = String((Platform.constants as any)?.Fingerprint || '').toLowerCase();
@@ -9,10 +25,11 @@ function getDevHost(): string {
     if (isEmulator) {
       return 'http://10.0.2.2:3000';
     }
-    // Physical device: USB connection via `adb reverse tcp:3000 tcp:3000` maps localhost directly to host PC
-    return 'http://localhost:3000';
+    // Default to LAN IP on physical Android device
+    return `http://${DEV_LAN_IP}:3000`;
   }
-  return 'http://localhost:3000';
+
+  return `http://${DEV_LAN_IP}:3000`;
 }
 
 export const DEV_HOST = getDevHost();

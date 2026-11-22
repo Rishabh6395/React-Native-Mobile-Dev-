@@ -7,6 +7,7 @@ import {
   LayoutChangeEvent,
   StyleProp,
   ViewStyle,
+  Platform,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -15,9 +16,10 @@ import Animated, {
   useReducedMotion,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../../theme/ThemeContext';
 import { springConfig, triggerHaptic } from '../../theme/motion';
-import { layout, spacing, typography } from '../../theme/tokens';
+import { layout, spacing, typography, neutralShadow } from '../../theme/tokens';
 
 export interface TabItem {
   id: string;
@@ -75,20 +77,8 @@ export const TabBar: React.FC<TabBarProps> = ({
     }
   };
 
-  return (
-    <View
-      onLayout={handleLayout}
-      style={[
-        styles.floatingContainer,
-        {
-          backgroundColor: isDark
-            ? 'rgba(18, 21, 28, 0.92)'
-            : 'rgba(255, 255, 255, 0.95)',
-          borderColor: theme.border.subtle,
-        },
-        style,
-      ]}
-    >
+  const containerContent = (
+    <>
       {/* Sliding Active Pill Indicator */}
       {tabWidth > 0 && (
         <Animated.View
@@ -118,7 +108,9 @@ export const TabBar: React.FC<TabBarProps> = ({
               onPress={() => handleTabPress(tab.id)}
               style={styles.tabButton}
             >
-              {tab.icon({ color: iconColor, size: 20 })}
+              <View style={isActive ? styles.activeIconWrap : undefined}>
+                {tab.icon({ color: iconColor, size: 20 })}
+              </View>
               <Text
                 style={[
                   styles.tabLabel,
@@ -136,6 +128,41 @@ export const TabBar: React.FC<TabBarProps> = ({
           );
         })}
       </View>
+    </>
+  );
+
+  return (
+    <View
+      onLayout={handleLayout}
+      style={[
+        styles.floatingContainer,
+        neutralShadow,
+        { borderColor: theme.border.glass },
+        style,
+      ]}
+    >
+      {/* Blur background for glass effect */}
+      {Platform.OS !== 'web' && (
+        <BlurView
+          intensity={isDark ? 50 : 70}
+          tint={isDark ? 'dark' : 'light'}
+          style={[StyleSheet.absoluteFill, styles.blurFill]}
+        />
+      )}
+      {/* Tinted overlay */}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            backgroundColor: isDark
+              ? 'rgba(10, 13, 22, 0.70)'
+              : 'rgba(255, 255, 255, 0.80)',
+            borderRadius: layout.borderRadius.pill,
+          },
+        ]}
+        pointerEvents="none"
+      />
+      {containerContent}
     </View>
   );
 };
@@ -148,12 +175,11 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     justifyContent: 'center',
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
+    overflow: 'hidden',
     marginHorizontal: layout.screenPadding,
+  },
+  blurFill: {
+    borderRadius: layout.borderRadius.pill,
   },
   indicator: {
     position: 'absolute',
@@ -176,6 +202,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
+  },
+  activeIconWrap: {
+    // Neon glow halo around active icon — simulated via shadow
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 4,
   },
   tabLabel: {
     fontSize: 10,
